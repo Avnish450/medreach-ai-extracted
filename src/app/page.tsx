@@ -212,15 +212,17 @@ export default function Home() {
         </div>
 
         {/* Layer 2: Central HUD Image (z-10) */}
-        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none opacity-60 mix-blend-lighten overflow-hidden mt-12 md:mt-24">
+        <div 
+          className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none opacity-60 mix-blend-lighten overflow-hidden mt-12 md:mt-24"
+          style={{
+            WebkitMaskImage: 'radial-gradient(50% 50% at 50% 50%, black 50%, transparent 100%)',
+            maskImage: 'radial-gradient(50% 50% at 50% 50%, black 50%, transparent 100%)',
+          }}
+        >
            <img 
              src="/images/hero-hud.png" 
              alt="MedReach Clinical Interface" 
              className="w-full h-full max-w-6xl object-contain scale-[1.1] md:scale-[1.15] drop-shadow-2xl opacity-80"
-             style={{
-               WebkitMaskImage: 'radial-gradient(ellipse at center, black 30%, transparent 80%)',
-               maskImage: 'radial-gradient(ellipse at center, black 30%, transparent 80%)',
-             }}
            />
         </div>
 
