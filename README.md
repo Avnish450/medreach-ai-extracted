@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/favicon.ico" alt="Logo" width="80" height="80">
+  <img src="public/logo.jpg" alt="Logo" width="100" height="100" style="border-radius: 20px;">
   <h1 align="center">MedReach AI</h1>
 
   <p align="center">

@@ -51,9 +51,7 @@ export function Navbar() {
           
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 pl-2 group">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 via-cyan-400 to-emerald-400 flex items-center justify-center shadow-lg shadow-sky-500/20 group-hover:scale-105 transition-transform">
-              <Activity className="w-4 h-4 text-black" />
-            </div>
+            <img src="/logo.jpg" alt="MedReach AI Logo" className="w-8 h-8 rounded-full shadow-lg shadow-sky-500/20 group-hover:scale-105 transition-transform object-cover" />
             <span className="font-semibold text-sm tracking-tight text-foreground flex items-center gap-1.5">
               MedReach
               <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-muted text-sky-600 dark:text-sky-300 border border-border">
