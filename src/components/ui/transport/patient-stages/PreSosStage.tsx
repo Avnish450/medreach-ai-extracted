@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ShieldAlert, MapPin, Edit3, CheckCircle2, Clock, Activity, Car, AlertTriangle, Phone } from 'lucide-react';
@@ -8,10 +8,12 @@ import { usePatientSosStore, UrgencyLevel } from '@/store/use-patient-sos-store'
 import { useGeolocation } from '@/hooks/use-geolocation';
 import { LiveNetworkMap } from '../LiveNetworkMap';
 import { Badge } from '@/components/ui/badge';
+import { PolicyConfirmationModal } from '@/components/ui/PolicyConfirmationModal';
 
 export function PreSosStage({ onBroadcast }: { onBroadcast: () => void }) {
   const { location, loading: geoLoading } = useGeolocation();
   const { urgency, setUrgency, triageSummary, destinationHospital } = usePatientSosStore();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const urgencyOptions: { value: UrgencyLevel; label: string; desc: string; icon: React.ReactNode, color: string }[] = [
     { value: 'routine', label: 'Non-critical', desc: 'Routine transport', icon: <Car className="w-4 h-4"/>, color: 'border-blue-500/50 bg-blue-500/10 text-blue-400' },
@@ -120,12 +122,28 @@ export function PreSosStage({ onBroadcast }: { onBroadcast: () => void }) {
         <div className="space-y-4 pt-4">
           <Button 
             size="lg" 
-            onClick={onBroadcast}
+            onClick={() => setIsModalOpen(true)}
             disabled={geoLoading}
             className="w-full bg-red-600 hover:bg-red-500 text-white font-black text-xl h-16 shadow-[0_0_30px_rgba(239,68,68,0.4)] hover:shadow-[0_0_50px_rgba(239,68,68,0.6)] transition-all animate-pulse duration-2000"
           >
             🚨 BROADCAST SOS NOW
           </Button>
+
+          <PolicyConfirmationModal 
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onConfirm={() => {
+              setIsModalOpen(false);
+              onBroadcast();
+            }}
+            title="Authorize Emergency Dispatch"
+            actionName="Broadcast SOS & Dispatch Community Responders"
+            reasoning={triageSummary || "Patient initiated emergency community rescue."}
+            policyTrigger="Emergency Response Protocol ER-1: Authorization required for mass-broadcasting location to community volunteers."
+            dataShared={["Live GPS Location", "Urgency Status", "Emergency Contacts"]}
+            targetService="MedReach Peer-to-Peer Rescue Network"
+            isHighPriority={true}
+          />
 
           <div className="flex items-center gap-4 justify-center pt-2">
             <span className="text-xs text-slate-500 font-bold uppercase">⚠️ Life-threatening?</span>

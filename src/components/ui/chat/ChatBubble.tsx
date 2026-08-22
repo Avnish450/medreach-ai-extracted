@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Bot, User, ArrowRight, Info } from 'lucide-react';
 import { ChatMessage, UrgencyLevel } from '@/types';
@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { QuickReplyChips } from './QuickReplyChips';
 import { StreamingText } from './StreamingText';
 import { useRouter } from 'next/navigation';
+import { PolicyConfirmationModal } from '@/components/ui/PolicyConfirmationModal';
 
 interface ChatBubbleProps {
   message: ChatMessage;
@@ -19,6 +20,7 @@ interface ChatBubbleProps {
 export function ChatBubble({ message, onSendReply, isLast }: ChatBubbleProps) {
   const router = useRouter();
   const isUser = message.role === 'user';
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <motion.div
@@ -71,8 +73,32 @@ export function ChatBubble({ message, onSendReply, isLast }: ChatBubbleProps) {
 
           {/* Final Triage Result Card */}
           {!isUser && message.triageResponse?.state === 'ASSESSMENT' && message.triageResponse.final_assessment && (
-            <div className="mt-4 pt-4 border-t border-border/40 flex flex-col gap-3 bg-background/50 p-3 rounded-xl border">
-              <div className="flex justify-between items-center">
+            (() => {
+              const urgency = message.triageResponse.final_assessment.urgency.toUpperCase();
+              const isHighPriority = urgency === 'EMERGENCY' || urgency === 'HIGH';
+              const specialty = message.triageResponse.final_assessment.recommended_specialties?.[0] || 'General physician consultation';
+              
+              const modalProps = isHighPriority ? {
+                actionName: "Urgent Care Recommended",
+                targetService: "Urgent care / Emergency department",
+                reasoning: "Potentially urgent symptoms detected that may require immediate medical evaluation. MedReach is not treating this as a routine appointment.",
+                policyTrigger: "Exception Override: Potential emergency symptoms detected → Urgent care/emergency department recommendation (Overrides Routine Flow).",
+                dataShared: ["Live GPS Location", "Urgency Status", "Emergency Contacts"],
+                confirmText: "Confirm Urgent Care",
+                cancelText: "Go Back / View Options"
+              } : {
+                actionName: `Recommend Care: ${specialty}`,
+                targetService: "Nearby clinic selected based on location",
+                reasoning: "Symptoms appear suitable for routine medical evaluation.",
+                policyTrigger: "Routine symptoms → recommend non-emergency healthcare.",
+                dataShared: ["Symptoms entered by the user", "Approximate/current location for nearby healthcare options"],
+                confirmText: "Confirm & Continue",
+                cancelText: "Cancel / Go Back"
+              };
+
+              return (
+                <div className="mt-4 pt-4 border-t border-border/40 flex flex-col gap-3 bg-background/50 p-3 rounded-xl border">
+                  <div className="flex justify-between items-center">
                 <span className="text-xs font-semibold text-muted-foreground">Urgency Classification:</span>
                 <UrgencyBadge urgency={message.triageResponse.final_assessment.urgency.toLowerCase() as UrgencyLevel} />
               </div>
@@ -96,13 +122,29 @@ export function ChatBubble({ message, onSendReply, isLast }: ChatBubbleProps) {
               )}
 
               <Button
-                className="mt-3 w-full bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 flex items-center justify-center gap-1"
-                onClick={() => router.push('/recommendations')}
+                className="mt-3 w-full bg-primary hover:bg-primary/90 text-white text-xs font-bold py-2 flex items-center justify-center gap-1 shadow-[0_0_15px_rgba(37,99,235,0.3)]"
+                onClick={() => setIsModalOpen(true)}
               >
                 Go to Recommendations Dashboard
                 <ArrowRight className="h-3 w-3" />
               </Button>
+
+              <PolicyConfirmationModal 
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onConfirm={() => router.push('/recommendations')}
+                actionName={modalProps.actionName}
+                reasoning={modalProps.reasoning}
+                policyTrigger={modalProps.policyTrigger}
+                dataShared={modalProps.dataShared}
+                targetService={modalProps.targetService}
+                isHighPriority={isHighPriority}
+                confirmText={modalProps.confirmText}
+                cancelText={modalProps.cancelText}
+              />
             </div>
+              );
+            })()
           )}
         </div>
         <span className="text-[10px] text-muted-foreground/80 px-1 text-right">

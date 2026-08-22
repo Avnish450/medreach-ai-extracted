@@ -38,8 +38,8 @@ function useCounter(target: number, duration: number = 2000, startOnView: boolea
 }
 
 // ─── Stat Counter Card ─────────────────────────────────────
-function StatCard({ value, suffix, label, icon: Icon, delay = 0 }: {
-  value: number; suffix: string; label: string; icon: React.ElementType<{ className?: string }>; delay?: number;
+function StatCard({ value, suffix, label, delay = 0, isLast = false }: {
+  value: number; suffix: string; label: string; delay?: number; isLast?: boolean;
 }) {
   const { count, ref } = useCounter(value, 2200);
 
@@ -50,15 +50,12 @@ function StatCard({ value, suffix, label, icon: Icon, delay = 0 }: {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.5, delay }}
-      className="flex flex-col items-center text-center p-6 rounded-2xl bg-card/50 border border-border backdrop-blur-sm"
+      className={`flex flex-col items-center justify-center p-6 ${!isLast ? 'border-b md:border-b-0 md:border-r border-border/40' : ''}`}
     >
-      <div className="w-10 h-10 rounded-xl bg-sky-500/10 dark:bg-sky-500/15 flex items-center justify-center mb-3">
-        <Icon className="w-5 h-5 text-sky-500 dark:text-sky-400" />
+      <div className="text-4xl md:text-5xl font-bold text-foreground tracking-tight flex items-baseline">
+        {count}<span className="text-3xl font-medium text-muted-foreground ml-1">{suffix}</span>
       </div>
-      <div className="text-3xl md:text-4xl font-bold text-foreground font-mono tracking-tight">
-        {count}{suffix}
-      </div>
-      <div className="text-xs text-muted-foreground mt-1 font-medium">
+      <div className="text-xs md:text-sm text-muted-foreground mt-2 font-semibold tracking-wider uppercase text-center">
         {label}
       </div>
     </motion.div>
@@ -200,144 +197,120 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════
           SECTION 1: HERO
           ══════════════════════════════════════════════════════ */}
-      <section className="relative pt-8 md:pt-16 pb-16 md:pb-24 overflow-hidden">
+      <section className="relative pt-8 md:pt-16 pb-16 md:pb-24 overflow-hidden min-h-[700px] flex items-center justify-center">
+        
+        {/* Layer 1: Massive Background Text (z-0) */}
+        <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none select-none overflow-hidden pt-12">
+          <motion.h1 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
+            className="text-[15vw] md:text-[20vw] font-bold text-white/10 whitespace-nowrap tracking-tighter leading-none"
+          >
+            MEDREACH
+          </motion.h1>
+        </div>
 
-        {/* Ambient Animated Orbs */}
-        <motion.div 
-          animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-100px] left-1/4 w-[600px] h-[600px] bg-sky-500/15 blur-[120px] rounded-full pointer-events-none" 
-        />
-        <motion.div 
-          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2], x: [0, -50, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[100px] right-1/4 w-[700px] h-[700px] bg-purple-500/15 blur-[120px] rounded-full pointer-events-none" 
-        />
+        {/* Layer 2: Central HUD Image (z-10) */}
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none opacity-60 mix-blend-lighten overflow-hidden mt-12 md:mt-24">
+           <img 
+             src="/images/hero-hud.png" 
+             alt="MedReach Clinical Interface" 
+             className="w-full h-full max-w-6xl object-contain scale-[1.1] md:scale-[1.15] drop-shadow-2xl opacity-80"
+             style={{
+               WebkitMaskImage: 'radial-gradient(ellipse at center, black 30%, transparent 80%)',
+               maskImage: 'radial-gradient(ellipse at center, black 30%, transparent 80%)',
+             }}
+           />
+        </div>
 
-        <div className="container mx-auto px-4 md:px-8 relative z-10 max-w-7xl pt-12 md:pt-20">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
+        {/* Layer 3: Main Foreground Content (z-20) */}
+        <div className="container mx-auto px-4 md:px-8 relative z-20 max-w-7xl">
+          
+          <div className="flex flex-col items-center text-center space-y-8 max-w-4xl mx-auto pt-12 md:pt-24">
             
-            {/* Left Column: Text and CTA */}
-            <div className="flex flex-col space-y-6 lg:space-y-8 z-10 text-left">
-              
-              {/* Pill Badge */}
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-sm font-medium w-fit shadow-md shadow-sky-500/10"
-              >
-                <span className="flex h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse" />
-                <span className="text-slate-300">Introducing MedReach AI 2.0</span>
-                <span className="text-slate-600">•</span>
-                <span className="text-sky-400">Clinical Intelligence &rarr;</span>
-              </motion.div>
-
-              {/* Main Headline */}
-              <motion.h1
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.08] lg:leading-[1.1]"
-              >
-                Healthcare triage,<br />
-                <span className="framer-gradient-cyan">
-                  reimagined with AI.
-                </span>
-              </motion.h1>
-
-              {/* Subtitle */}
-              <motion.p
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-base md:text-lg text-muted-foreground max-w-lg leading-relaxed"
-              >
-                Describe symptoms via voice or text. Get clinical urgency classification, differential diagnosis matching, and instant routing to nearby specialists.
-              </motion.p>
-
-              {/* Action Buttons */}
-              <motion.div 
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="flex flex-wrap gap-4 pt-2"
-              >
-                <Link href="/assessment">
-                  <Button className="h-12 px-6 rounded-full bg-white text-black hover:bg-white/90 font-semibold gap-2 shadow-[0_0_20px_rgba(34,211,238,0.3)]">
-                    <Sparkles className="w-4 h-4 text-cyan-500" />
-                    Start Free AI Triage
-                  </Button>
-                </Link>
-                <Link href="/voice">
-                  <Button className="h-12 px-6 rounded-full bg-slate-900 border border-slate-800 text-white hover:bg-slate-800 font-semibold gap-2">
-                    <Mic className="w-4 h-4 text-purple-400" />
-                    Speak with Voice AI
-                  </Button>
-                </Link>
-              </motion.div>
-
-              {/* Checkmarks */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="flex flex-wrap gap-x-6 gap-y-3 pt-4 text-sm font-medium"
-              >
-                <div className="flex items-center gap-2 text-slate-300">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  Sub-second inference
-                </div>
-                <div className="flex items-center gap-2 text-slate-300">
-                  <CheckCircle2 className="w-4 h-4 text-sky-500" />
-                  ICD-11 Taxonomy
-                </div>
-                <div className="flex items-center gap-2 text-slate-300">
-                  <CheckCircle2 className="w-4 h-4 text-purple-500" />
-                  Private & Anonymous
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Right Column: Floating Hologram Image */}
-            <motion.div 
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 1, type: 'spring' }}
-              className="w-full relative flex items-center justify-center lg:justify-end pointer-events-none"
+            {/* Pill Badge */}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-sm font-medium w-fit shadow-md shadow-primary/10 mx-auto"
             >
-              <div 
-                className="w-full max-w-[800px] relative lg:-mr-12 lg:-mt-16"
-                style={{
-                  WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 30%, black 100%)',
-                  maskImage: 'linear-gradient(to right, transparent 0%, black 30%, black 100%)',
-                }}
-              >
-                <img 
-                  src="/images/hero-hud.png" 
-                  alt="MedReach AI Hologram" 
-                  className="w-full h-auto object-contain mix-blend-lighten opacity-95 drop-shadow-2xl"
-                />
+              <span className="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-slate-300">MedReach 2.0</span>
+              <span className="text-slate-600">•</span>
+              <span className="text-primary">Clinical Triage Engine &rarr;</span>
+            </motion.div>
+
+            {/* Main Headline */}
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight text-foreground leading-[1.1]"
+            >
+              Clinical-grade symptom triage,<br />
+              <span className="framer-gradient-cyan">
+                delivered instantly.
+              </span>
+            </motion.h1>
+
+            {/* Subtitle */}
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
+            >
+              Experience seamless clinical urgency classification, differential diagnosis matching, and direct routing to the right specialist based on established medical protocols.
+            </motion.p>
+
+            {/* Action Buttons */}
+            <motion.div 
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="flex flex-wrap justify-center gap-4 pt-4"
+            >
+              <Link href="/assessment">
+                <Button className="h-14 px-8 rounded-full bg-white text-black hover:bg-white/90 font-bold gap-2 shadow-[0_0_30px_rgba(255,255,255,0.2)] text-base">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  Start Symptom Triage
+                </Button>
+              </Link>
+              <Link href="/voice">
+                <Button className="h-14 px-8 rounded-full bg-slate-900 border border-slate-800 text-white hover:bg-slate-800 font-bold gap-2 text-base">
+                  <Mic className="w-5 h-5 text-purple-400" />
+                  Voice Assessment
+                </Button>
+              </Link>
+            </motion.div>
+
+            {/* Checkmarks */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="flex flex-wrap justify-center gap-x-8 gap-y-4 pt-8 text-sm font-medium"
+            >
+              <div className="flex items-center gap-2 text-slate-300 bg-slate-900/50 px-4 py-2 rounded-full border border-slate-800/50 backdrop-blur-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                Sub-second inference
+              </div>
+              <div className="flex items-center gap-2 text-slate-300 bg-slate-900/50 px-4 py-2 rounded-full border border-slate-800/50 backdrop-blur-sm">
+                <CheckCircle2 className="w-4 h-4 text-sky-500" />
+                ICD-11 Taxonomy
+              </div>
+              <div className="flex items-center gap-2 text-slate-300 bg-slate-900/50 px-4 py-2 rounded-full border border-slate-800/50 backdrop-blur-sm">
+                <CheckCircle2 className="w-4 h-4 text-purple-500" />
+                Private & Anonymous
               </div>
             </motion.div>
-            
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════
-          SECTION 2: ANIMATED STATS BAR
-          ══════════════════════════════════════════════════════ */}
-      <section className="py-12 relative section-glow">
-        <div className="container mx-auto px-4 md:px-8 max-w-6xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard value={60} suffix="s" label="Average Triage Time" icon={Clock} delay={0} />
-            <StatCard value={99} suffix="%" label="Clinical Precision" icon={Gauge} delay={0.1} />
-            <StatCard value={50} suffix="K+" label="Assessments Completed" icon={TrendingUp} delay={0.2} />
-            <StatCard value={24} suffix="/7" label="Always Available" icon={Radio} delay={0.3} />
-          </div>
-        </div>
-      </section>
+
 
       {/* ══════════════════════════════════════════════════════
           SECTION 3: INTERACTIVE TRIAGE PLAYGROUND

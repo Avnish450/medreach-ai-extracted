@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { 
   Activity, Sun, Moon, Menu, ShieldAlert, 
-  X, ArrowRight, Stethoscope, MapPin, Mic
+  X, ArrowRight, Stethoscope, MapPin, Mic, Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -31,6 +31,7 @@ export function Navbar() {
     { name: 'Symptom Triage', href: '/assessment', icon: <Activity className="w-3.5 h-3.5" /> },
     { name: 'Voice Assist', href: '/voice', icon: <Mic className="w-3.5 h-3.5" /> },
     { name: 'Rescue Transport', href: '/transport', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+    { name: 'Policy Simulator', href: '/admin/policies', icon: <Settings className="w-3.5 h-3.5 text-primary" /> },
     { name: 'Clinic Radar', href: '/map', icon: <MapPin className="w-3.5 h-3.5" /> },
     { name: 'Doctors', href: '/doctors', icon: <Stethoscope className="w-3.5 h-3.5" /> },
   ];
