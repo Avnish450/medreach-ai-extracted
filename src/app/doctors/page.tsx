@@ -122,6 +122,10 @@ function DoctorDirectoryContent() {
   const [citySearchQuery, setCitySearchQuery] = useState('');
   const [showCityDropdown, setShowCityDropdown] = useState(false);
 
+  // ---- pagination ----
+  const DOCTORS_PER_PAGE = 4;
+  const [currentPage, setCurrentPage] = useState(1);
+
   // ---- appointment dialog ----
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -172,6 +176,7 @@ function DoctorDirectoryContent() {
 
   useEffect(() => {
     queueMicrotask(() => { void fetchDoctors(); });
+    setCurrentPage(1); // reset to first page on any filter change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specialty, city, searchQuery, availableOnly, emergencyOnly, maxFee, minFee, minExperience]);
 
@@ -228,6 +233,18 @@ function DoctorDirectoryContent() {
     minExperience[0] > 0,
     !!searchQuery,
   ].filter(Boolean).length;
+
+  // ---- pagination derived values ----
+  const totalPages = Math.max(1, Math.ceil(doctors.length / DOCTORS_PER_PAGE));
+  const paginatedDoctors = doctors.slice(
+    (currentPage - 1) * DOCTORS_PER_PAGE,
+    currentPage * DOCTORS_PER_PAGE
+  );
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   /* ================================================================ */
   /* RENDER                                                             */
@@ -519,6 +536,11 @@ function DoctorDirectoryContent() {
               {!loading && (
                 <span className="text-xs text-muted-foreground">
                   {doctors.length} doctor{doctors.length !== 1 ? 's' : ''} found
+                  {totalPages > 1 && (
+                    <span className="ml-1 text-muted-foreground/60">
+                      · Page {currentPage} of {totalPages}
+                    </span>
+                  )}
                 </span>
               )}
             </div>
@@ -536,130 +558,188 @@ function DoctorDirectoryContent() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <AnimatePresence>
-                {doctors.map(doctor => (
-                  <motion.div
-                    key={doctor.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    <Card className={`shadow hover:shadow-lg transition-all border-border/40 bg-card/60 backdrop-blur flex flex-col h-full group ${doctor.isEmergencyAvailable ? 'hover:border-red-500/30' : 'hover:border-teal-500/30'}`}>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <AnimatePresence>
+                  {paginatedDoctors.map(doctor => (
+                    <motion.div
+                      key={doctor.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      <Card className={`shadow hover:shadow-lg transition-all border-border/40 bg-card/60 backdrop-blur flex flex-col h-full group ${doctor.isEmergencyAvailable ? 'hover:border-red-500/30' : 'hover:border-teal-500/30'}`}>
 
-                      {/* Card Header */}
-                      <CardHeader className="pb-3 border-b border-border/20">
-                        <div className="flex justify-between items-start gap-3">
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-sm font-bold leading-tight truncate">
-                              {doctor.name}
-                            </CardTitle>
-                            <CardDescription className="text-xs font-semibold text-teal-600 dark:text-teal-400 mt-0.5">
-                              {doctor.specialty}
-                            </CardDescription>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <UrgencyBadge status={doctor.availabilityStatus} />
-                            {doctor.isEmergencyAvailable && (
-                              <span className="text-[8px] font-extrabold uppercase tracking-wide text-red-500 flex items-center gap-0.5">
-                                <ZapIcon className="h-2.5 w-2.5" />ER Ready
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </CardHeader>
-
-                      {/* Card Body */}
-                      <CardContent className="py-3 space-y-2.5 flex-grow text-xs text-muted-foreground leading-relaxed">
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="flex items-center gap-1.5">
-                            <Award className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
-                            <span>{doctor.experience} Yrs Exp</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Activity className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
-                            <span className="font-bold text-foreground">₹{doctor.consultationFee}</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <span className="text-[9px] font-bold text-muted-foreground uppercase block mb-0.5">Qualification</span>
-                          <p className="text-foreground font-medium leading-tight line-clamp-1">{doctor.qualification}</p>
-                        </div>
-
-                        <div>
-                          <span className="text-[9px] font-bold text-muted-foreground uppercase block mb-0.5 flex items-center gap-1">
-                            <Building2 className="h-2.5 w-2.5" /> Hospital
-                          </span>
-                          <p className="text-foreground font-medium leading-tight line-clamp-1">{doctor.clinicName}</p>
-                          <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <MapPin className="h-2.5 w-2.5 shrink-0" />
-                            {doctor.clinicAddress}, {doctor.clinicCity}
-                            {doctor.clinicState && <span className="opacity-60">, {doctor.clinicState}</span>}
-                          </p>
-                        </div>
-
-                        {/* Emergency desk info */}
-                        {doctor.isEmergencyAvailable && doctor.emergencyDesk && (
-                          <div className="flex items-start gap-1.5 rounded-lg bg-red-500/5 border border-red-500/15 p-2">
-                            <ShieldAlert className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
-                            <div>
-                              <span className="text-[9px] font-extrabold text-red-500 uppercase block">Emergency Desk</span>
-                              <p className="text-[11px] text-foreground font-medium">{doctor.emergencyDesk}</p>
-                              {doctor.hospitalPhone && (
-                                <p className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
-                                  <Phone className="h-2.5 w-2.5" />
-                                  {doctor.hospitalPhone}
-                                </p>
+                        {/* Card Header */}
+                        <CardHeader className="pb-3 border-b border-border/20">
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-sm font-bold leading-tight truncate">
+                                {doctor.name}
+                              </CardTitle>
+                              <CardDescription className="text-xs font-semibold text-teal-600 dark:text-teal-400 mt-0.5">
+                                {doctor.specialty}
+                              </CardDescription>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <UrgencyBadge status={doctor.availabilityStatus} />
+                              {doctor.isEmergencyAvailable && (
+                                <span className="text-[8px] font-extrabold uppercase tracking-wide text-red-500 flex items-center gap-0.5">
+                                  <ZapIcon className="h-2.5 w-2.5" />ER Ready
+                                </span>
                               )}
                             </div>
                           </div>
-                        )}
+                        </CardHeader>
 
-                        <div>
-                          <span className="text-[9px] font-bold text-muted-foreground uppercase block mb-0.5">About</span>
-                          <p className="line-clamp-2 text-[11px]">{doctor.about}</p>
-                        </div>
+                        {/* Card Body */}
+                        <CardContent className="py-3 space-y-2.5 flex-grow text-xs text-muted-foreground leading-relaxed">
 
-                      </CardContent>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <Award className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                              <span>{doctor.experience} Yrs Exp</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Activity className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                              <span className="font-bold text-foreground">₹{doctor.consultationFee}</span>
+                            </div>
+                          </div>
 
-                      {/* Card Footer — dual action buttons */}
-                      <CardFooter className="pt-3 border-t border-border/20 bg-muted/10 flex gap-2">
-                        <Button
-                          onClick={() => handleBookAppointment(doctor)}
-                          className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs py-2 flex items-center justify-center gap-1"
+                          <div>
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase block mb-0.5">Qualification</span>
+                            <p className="text-foreground font-medium leading-tight line-clamp-1">{doctor.qualification}</p>
+                          </div>
+
+                          <div>
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase block mb-0.5 flex items-center gap-1">
+                              <Building2 className="h-2.5 w-2.5" /> Hospital
+                            </span>
+                            <p className="text-foreground font-medium leading-tight line-clamp-1">{doctor.clinicName}</p>
+                            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-2.5 w-2.5 shrink-0" />
+                              {doctor.clinicAddress}, {doctor.clinicCity}
+                              {doctor.clinicState && <span className="opacity-60">, {doctor.clinicState}</span>}
+                            </p>
+                          </div>
+
+                          {/* Emergency desk info */}
+                          {doctor.isEmergencyAvailable && doctor.emergencyDesk && (
+                            <div className="flex items-start gap-1.5 rounded-lg bg-red-500/5 border border-red-500/15 p-2">
+                              <ShieldAlert className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+                              <div>
+                                <span className="text-[9px] font-extrabold text-red-500 uppercase block">Emergency Desk</span>
+                                <p className="text-[11px] text-foreground font-medium">{doctor.emergencyDesk}</p>
+                                {doctor.hospitalPhone && (
+                                  <p className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
+                                    <Phone className="h-2.5 w-2.5" />
+                                    {doctor.hospitalPhone}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div>
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase block mb-0.5">About</span>
+                            <p className="line-clamp-2 text-[11px]">{doctor.about}</p>
+                          </div>
+
+                        </CardContent>
+
+                        {/* Card Footer — dual action buttons */}
+                        <CardFooter className="pt-3 border-t border-border/20 bg-muted/10 flex gap-2">
+                          <Button
+                            onClick={() => handleBookAppointment(doctor)}
+                            className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs py-2 flex items-center justify-center gap-1"
+                          >
+                            <Calendar className="h-3.5 w-3.5" />
+                            Appointment
+                          </Button>
+                          {doctor.isEmergencyAvailable ? (
+                            <Button
+                              onClick={() => handleEmergencyAlert(doctor)}
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2 flex items-center justify-center gap-1"
+                            >
+                              <Bell className="h-3.5 w-3.5" />
+                              Alert Hospital
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              disabled
+                              className="flex-1 text-xs font-semibold border-border/40 text-muted-foreground cursor-not-allowed"
+                              title="This facility does not have a 24/7 emergency desk"
+                            >
+                              <ShieldAlert className="h-3.5 w-3.5 mr-1" />
+                              ER N/A
+                            </Button>
+                          )}
+                        </CardFooter>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+
+              {/* ── Pagination Bar ── */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-1.5 pt-4 pb-2">
+                  {/* Prev */}
+                  <button
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="h-8 px-3 rounded-lg text-xs font-semibold border border-border/50 bg-card hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    ← Prev
+                  </button>
+
+                  {/* Page numbers */}
+                  {(() => {
+                    const pages: (number | '...')[] = [];
+                    if (totalPages <= 7) {
+                      for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                      pages.push(1);
+                      if (currentPage > 3) pages.push('...');
+                      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+                        pages.push(i);
+                      }
+                      if (currentPage < totalPages - 2) pages.push('...');
+                      pages.push(totalPages);
+                    }
+                    return pages.map((p, idx) =>
+                      p === '...' ? (
+                        <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground text-xs">…</span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => goToPage(p as number)}
+                          className={`h-8 w-8 rounded-lg text-xs font-bold border transition-all ${
+                            currentPage === p
+                              ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-500/20'
+                              : 'border-border/50 bg-card hover:bg-muted/50 text-foreground'
+                          }`}
                         >
-                          <Calendar className="h-3.5 w-3.5" />
-                          Appointment
-                        </Button>
-                        {doctor.isEmergencyAvailable ? (
-                          <Button
-                            onClick={() => handleEmergencyAlert(doctor)}
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2 flex items-center justify-center gap-1"
-                          >
-                            <Bell className="h-3.5 w-3.5" />
-                            Alert Hospital
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            disabled
-                            className="flex-1 text-xs font-semibold border-border/40 text-muted-foreground cursor-not-allowed"
-                            title="This facility does not have a 24/7 emergency desk"
-                          >
-                            <ShieldAlert className="h-3.5 w-3.5 mr-1" />
-                            ER N/A
-                          </Button>
-                        )}
-                      </CardFooter>
-                    </Card>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+                          {p}
+                        </button>
+                      )
+                    );
+                  })()}
+
+                  {/* Next */}
+                  <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="h-8 px-3 rounded-lg text-xs font-semibold border border-border/50 bg-card hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
