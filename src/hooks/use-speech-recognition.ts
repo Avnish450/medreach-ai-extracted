@@ -135,6 +135,6 @@ export function useSpeechRecognition({ onResult, lang = 'en-US' }: UseSpeechReco
     startListening,
     stopListening,
     resetTranscript,
-    isSupported: !!((window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition)
+    isSupported: typeof window !== 'undefined' && !!((window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition)
   };
 }
