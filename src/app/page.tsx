@@ -101,7 +101,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 
 // ─── How It Works Step ─────────────────────────────────────
 function HowItWorksStep({ step, title, desc, icon: Icon, color, delay }: {
-  step: number; title: string; desc: string; icon: React.ElementType; color: string; delay: number;
+  step: number; title: string; desc: string; icon: React.ElementType<{ className?: string }>; color: string; delay: number;
 }) {
   return (
     <motion.div
