@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MedReach AI
+
+MedReach AI is an intelligent medical triage and healthcare accessibility platform built with modern web technologies. It leverages artificial intelligence to analyze patient symptoms, determine medical urgency, and recommend appropriate next steps and specialists.
+
+## Features
+
+- **AI-Powered Clinical Triage:** Utilizes Google Gemini (`gemini-1.5-flash`) to analyze symptoms, assess severity, and categorize urgency (Emergency, Urgent, Routine, Self-care).
+- **Emergency Detection:** Built-in heuristics for immediate detection of life-threatening conditions to bypass standard AI processing and provide immediate emergency instructions.
+- **Specialist Recommendations:** Intelligently matches analyzed symptoms to the right medical specialties (e.g., Cardiology, Dermatology).
+- **Interactive Healthcare Map:** Helps users find nearby clinics and hospitals using Google Maps integration.
+- **Voice Interface:** Voice-based interaction capabilities for seamless and accessible symptom reporting.
+- **Beautiful & Modern UI:** Built with Next.js App Router, Tailwind CSS, Shadcn UI, and smooth animations powered by Framer Motion. Also includes interactive 3D elements powered by Three.js/React Three Fiber.
+
+## Tech Stack
+
+- **Framework:** [Next.js](https://nextjs.org/) 16 (App Router)
+- **Library:** [React](https://reactjs.org/) 19
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+- **UI Components:** [Shadcn UI](https://ui.shadcn.com/)
+- **Animations:** [Framer Motion](https://www.framer.com/motion/) & [React Three Fiber](https://docs.pmnd.rs/react-three-fiber/getting-started/introduction)
+- **AI Integration:** [Google Generative AI](https://ai.google.dev/) (Gemini)
+- **Mapping:** [@react-google-maps/api](https://react-google-maps-api-docs.netlify.app/)
 
 ## Getting Started
 
-First, run the development server:
+First, make sure to install dependencies:
+
+```bash
+npm install
+```
+
+Set up your environment variables. You will likely need API keys for Google Gemini and Google Maps. Create a `.env.local` file in the root directory:
+
+```env
+# Example environment variables needed (update with actual keys)
+GEMINI_API_KEY=your_gemini_api_key
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/app`: Contains all the Next.js routes (`/assessment`, `/doctors`, `/emergency`, `/map`, `/recommendations`, `/voice`, `/api/triage`).
+- `src/components`: Reusable UI components grouped by feature (home, layout, shared, ui).
+- `src/lib/ai`: Contains the core logic for the AI Triage Engine, Emergency Detector, and Gemini API integration.
+- `src/types`: TypeScript definitions for the project.
 
-## Learn More
+## Note on Medical Disclaimer
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**MedReach AI is a tool designed for informational purposes and is not a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of a qualified healthcare provider with any questions you may have regarding a medical condition.**
