@@ -99,12 +99,17 @@ export interface Doctor {
   clinicName: string;
   clinicAddress: string;
   clinicCity: string;
+  clinicState?: string;
   location: {
     lat: number;
     lng: number;
   };
   languages: string[];
   about: string;
+  isEmergencyAvailable?: boolean;
+  hospitalPhone?: string;
+  emergencyDesk?: string;
+  traumaLevel?: string;
 }
 
 // --- Clinic ---
@@ -167,10 +172,36 @@ export interface MapFilters {
 // --- Doctor Filters ---
 export interface DoctorFilters {
   specialty: string;
+  city?: string;
   availableOnly: boolean;
+  emergencyOnly?: boolean;
   maxFee: number;
   minExperience: number;
   searchQuery: string;
+}
+
+// --- Emergency Notification ---
+export interface EmergencyNotificationData {
+  alertId: string;
+  doctorId: string;
+  doctorName: string;
+  specialty: string;
+  hospitalName: string;
+  hospitalAddress: string;
+  hospitalCity: string;
+  hospitalPhone: string;
+  patientName: string;
+  patientAge: string | number;
+  patientGender?: string;
+  contactPhone: string;
+  emergencyType: string;
+  urgencyCode: 'Code Red' | 'Code Amber';
+  etaMinutes: string;
+  transportMode: string;
+  symptomsNotes: string;
+  timestamp: string;
+  status: 'dispatched' | 'acknowledged' | 'bay_ready';
+  traumaBay?: string;
 }
 
 // --- Language ---
@@ -179,3 +210,4 @@ export type SupportedLanguage = 'en' | 'hi' | 'bn';
 export interface TranslationStrings {
   [key: string]: string;
 }
+

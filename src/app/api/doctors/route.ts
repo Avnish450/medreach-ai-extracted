@@ -5,7 +5,9 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const specialty = searchParams.get('specialty');
+    const city = searchParams.get('city');
     const availableOnly = searchParams.get('availableOnly') === 'true';
+    const emergencyOnly = searchParams.get('emergencyOnly') === 'true';
     const maxFee = searchParams.get('maxFee') ? parseInt(searchParams.get('maxFee') || '0', 10) : null;
     const minExperience = searchParams.get('minExperience') ? parseInt(searchParams.get('minExperience') || '0', 10) : null;
     const searchQuery = searchParams.get('searchQuery')?.toLowerCase() || '';
@@ -18,8 +20,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    if (city && city !== 'All India') {
+      filteredDoctors = filteredDoctors.filter(
+        d => d.clinicCity.toLowerCase() === city.toLowerCase() ||
+          (d.clinicState && d.clinicState.toLowerCase().includes(city.toLowerCase()))
+      );
+    }
+
     if (availableOnly) {
       filteredDoctors = filteredDoctors.filter(d => d.availabilityStatus === 'available');
+    }
+
+    if (emergencyOnly) {
+      filteredDoctors = filteredDoctors.filter(d => d.isEmergencyAvailable === true);
     }
 
     if (maxFee !== null && maxFee > 0) {
@@ -34,13 +47,14 @@ export async function GET(req: NextRequest) {
       filteredDoctors = filteredDoctors.filter(
         d => d.name.toLowerCase().includes(searchQuery) ||
           d.specialty.toLowerCase().includes(searchQuery) ||
-          d.clinicName.toLowerCase().includes(searchQuery)
+          d.clinicName.toLowerCase().includes(searchQuery) ||
+          d.clinicCity.toLowerCase().includes(searchQuery) ||
+          (d.clinicState && d.clinicState.toLowerCase().includes(searchQuery))
       );
     }
 
     return NextResponse.json(filteredDoctors);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch doctors' }, { status: 500 });
   }
-
 }

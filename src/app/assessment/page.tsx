@@ -127,7 +127,6 @@ export default function AssessmentPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
       setMessages((prev) => [
-
         ...prev,
         {
           id: `err-${Date.now()}`,
