@@ -42,7 +42,7 @@ export function UrgencyBanner({ urgency, explanation, timeToCare }: UrgencyBanne
   const config = urgencyConfig[normalizedUrgency] || urgencyConfig['routine'];
 
   return (
-    <Alert className={`${config.color} mb-6 shadow-sm`}>
+    <Alert className={`${config.color} shadow-sm`}>
       <div className="flex items-start gap-3">
         <div className="mt-0.5 bg-background p-1.5 rounded-full shadow-sm">{config.icon}</div>
         <div className="flex-grow">

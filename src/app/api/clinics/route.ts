@@ -26,7 +26,11 @@ export async function GET(req: NextRequest) {
         let keywordQuery = '';
 
         if (specialty && specialty !== 'All') {
-          keywordQuery = `&keyword=${encodeURIComponent(specialty.toLowerCase() + ' clinic')}`;
+          if (specialty === 'Emergency') {
+            keywordQuery = `&keyword=emergency`;
+          } else {
+            keywordQuery = `&keyword=${encodeURIComponent(specialty.toLowerCase() + ' clinic')}`;
+          }
         }
 
         // Fetch from Google Places Nearby Search API

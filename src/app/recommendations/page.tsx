@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { Bot, ArrowLeft, Share2, FileText, MapPin, Users, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Disclaimer } from '@/components/shared/disclaimer';
 import { FinalAssessment } from '@/types';
 import { ClinicalSummaryCard } from '@/components/ui/dashboard/ClinicalSummaryCard';
 import { ActionChecklist } from '@/components/ui/dashboard/ActionChecklist';
@@ -66,7 +65,7 @@ export default function RecommendationsPage() {
   const recommendedSpecialist = result.recommended_specialties?.[0] || 'General Physician';
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl min-h-[calc(100vh-8rem)] flex flex-col gap-6">
+    <div className="container mx-auto px-4 py-8 max-w-7xl min-h-[calc(100vh-8rem)] flex flex-col gap-6">
 
       {/* Navigation and Top Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -107,10 +106,10 @@ export default function RecommendationsPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         
         {/* Left Column (Main Info) */}
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
           <UrgencyBanner 
             urgency={result.urgency} 
             explanation={result.urgency_explanation} 
@@ -124,7 +123,7 @@ export default function RecommendationsPage() {
         </div>
 
         {/* Right Column (Actions & Providers) */}
-        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6">
+        <div className="flex flex-col gap-6 lg:sticky lg:top-24 lg:self-start">
           
           {/* Action Plan Checklist */}
           <ActionChecklist 
@@ -179,9 +178,7 @@ export default function RecommendationsPage() {
 
       </div>
 
-      <div className="mt-4">
-        <Disclaimer />
-      </div>
+
 
     </div>
   );

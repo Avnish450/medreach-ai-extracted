@@ -87,55 +87,186 @@ export async function performTriage(
     }
   }
 
-  // 3. Fallback to Local Heuristic / Mock Engine (Offline / Demo mode)
-  return getMockTriageResult(userInput, userInfo);
+  // 3. Fallback to stateful local heuristic engine
+  return getStatefulTriageResult(userInput, chatHistory, userInfo);
 }
 
-function getMockTriageResult(input: string, userInfo?: UserInfo): TriageResponse {
-  // A simplified mock response that just jumps to assessment for demo purposes
-  const normalized = input.toLowerCase();
-  
-  if (normalized.includes('fever')) {
-      return {
-          state: 'ASSESSMENT',
-          message: "Based on your report of a fever, here is my assessment.",
-          question: null,
-          progress: { percent: 100, completed_fields: [], next_field: '' },
-          final_assessment: {
-              urgency: 'URGENT',
-              urgency_explanation: 'High fever requires prompt medical evaluation.',
-              time_to_care: 'Within 24 hours',
-              summary: 'Patient reports fever.',
-              possible_conditions: [
-                  { name: 'Viral Fever', medical_name: 'Viral Infection', likelihood: 'HIGH', brief: 'Common viral illness' }
-              ],
-              recommended_specialties: ['General Medicine'],
-              do_now: ['Take paracetamol', 'Stay hydrated'],
-              do_not: ['Do not take antibiotics without prescription'],
-              watch_for_worsening: ['Difficulty breathing', 'Confusion'],
-              self_care_advice: 'Rest and fluids',
-              emergency_action: { call_emergency: false, emergency_number: '', message: '' }
-          },
-          disclaimer_reminder: true
-      };
+// ──────────────────────────────────────────────────────────────────────────────
+// STATEFUL LOCAL TRIAGE ENGINE
+// Tracks conversation turn count and progresses through OPQRST questions,
+// gathering information from user answers, and producing a final assessment.
+// ──────────────────────────────────────────────────────────────────────────────
+
+// Collect all user messages from chat history into a single blob for keyword analysis
+function getAllUserText(userInput: string, chatHistory: { role: string; content: string }[]): string {
+  const pastUserMessages = chatHistory
+    .filter(m => m.role === 'user')
+    .map(m => m.content)
+    .join(' ');
+  return `${pastUserMessages} ${userInput}`.toLowerCase();
+}
+
+// Simple keyword urgency scorer
+function scoreUrgency(allText: string): { urgency: UrgencyLevel; confidence: number } {
+  const high = ['severe', 'excruciating', 'unbearable', 'worst', 'blood', 'faint', 'dizzy', 'vomit', 'numbness', 'weakness', 'swelling', 'pregnant'];
+  const moderate = ['pain', 'ache', 'fever', 'cough', 'sore', 'nausea', 'rash', 'burning', 'stiff', 'cramp', 'swollen', 'tender'];
+  const low = ['mild', 'slight', 'little', 'minor', 'occasional', 'sometimes', 'dull'];
+
+  let score = 0;
+  high.forEach(k => { if (allText.includes(k)) score += 3; });
+  moderate.forEach(k => { if (allText.includes(k)) score += 1; });
+  low.forEach(k => { if (allText.includes(k)) score -= 1; });
+
+  if (score >= 8) return { urgency: 'URGENT', confidence: 75 };
+  if (score >= 4) return { urgency: 'ROUTINE', confidence: 60 };
+  return { urgency: 'SELF_CARE', confidence: 45 };
+}
+
+// The ordered intake questions following OPQRST
+const INTAKE_QUESTIONS: Array<{
+  field: string;
+  message: string;
+  question: { text: string; type: string; options: string[]; why_asking: string };
+}> = [
+  {
+    field: 'onset',
+    message: "Thank you for sharing that. Let me understand the timeline.",
+    question: {
+      text: "When did this start, and was it sudden or gradual?",
+      type: "choice",
+      options: ["Just now, suddenly", "Within the last few hours", "A few days ago", "More than a week ago", "It's been gradual"],
+      why_asking: "Sudden vs. gradual onset helps narrow down possible causes."
+    }
+  },
+  {
+    field: 'severity',
+    message: "Got it. Let me assess how much this is affecting you.",
+    question: {
+      text: "On a scale of 0-10, how would you rate the severity right now?",
+      type: "scale",
+      options: ["0-2 (Barely noticeable)", "3-4 (Mild)", "5-6 (Moderate)", "7-8 (Severe)", "9-10 (Worst imaginable)"],
+      why_asking: "Severity helps us gauge how urgently you need care."
+    }
+  },
+  {
+    field: 'quality',
+    message: "I appreciate you bearing with me. One more question to help narrow things down.",
+    question: {
+      text: "How would you describe the sensation?",
+      type: "choice",
+      options: ["Sharp or stabbing", "Dull or aching", "Burning", "Pressure or tightness", "Throbbing", "Tingling or numbness", "Other"],
+      why_asking: "The type of sensation helps differentiate between possible conditions."
+    }
+  },
+  {
+    field: 'associated_symptoms',
+    message: "Almost there. This will help me put the full picture together.",
+    question: {
+      text: "Are you experiencing any of these alongside your main symptom?",
+      type: "choice",
+      options: ["Fever or chills", "Nausea or vomiting", "Fatigue or weakness", "Headache", "Difficulty breathing", "Dizziness", "None of these"],
+      why_asking: "Associated symptoms can indicate if something more serious is going on."
+    }
+  }
+];
+
+function getStatefulTriageResult(
+  userInput: string,
+  chatHistory: { role: string; content: string }[],
+  userInfo?: UserInfo
+): TriageResponse {
+  // Count how many times the USER has spoken (not counting the current message)
+  const userTurnCount = chatHistory.filter(m => m.role === 'user').length;
+  // userTurnCount=0 means this is the first user message (chief complaint)
+  // userTurnCount=1 means chief complaint was given, now answer to Q1
+  // etc.
+
+  const allText = getAllUserText(userInput, chatHistory);
+  const matchedSpecialists = matchSymptomsToSpecialists(
+    chatHistory.filter(m => m.role === 'user').map(m => m.content).concat(userInput)
+  );
+
+  // ── TURN 0: User just gave their chief complaint → ask first OPQRST question
+  if (userTurnCount === 0) {
+    const q = INTAKE_QUESTIONS[0];
+    return {
+      state: 'TRIAGE_INTAKE',
+      message: `Thank you for telling me about that. I'd like to ask a few questions to understand your situation better.`,
+      question: { text: q.question.text, type: q.question.type as any, options: q.question.options, why_asking: q.question.why_asking },
+      progress: { percent: 20, completed_fields: ['chief_complaint'], next_field: q.field },
+      preliminary_assessment: { urgency: 'ROUTINE', confidence: 25, reasoning: 'Initial symptom reported, gathering more details.' },
+      disclaimer_reminder: true
+    };
   }
 
-  // Default question state for fallback if not immediately recognizing something
-  return {
+  // ── TURNS 1-3: Continue OPQRST intake
+  const questionIndex = Math.min(userTurnCount, INTAKE_QUESTIONS.length - 1);
+  
+  if (userTurnCount < INTAKE_QUESTIONS.length) {
+    const q = INTAKE_QUESTIONS[questionIndex];
+    const completedFields = ['chief_complaint', ...INTAKE_QUESTIONS.slice(0, questionIndex).map(iq => iq.field)];
+    const progressPercent = Math.min(20 + (questionIndex * 20), 80);
+    const { urgency, confidence } = scoreUrgency(allText);
+
+    return {
       state: 'TRIAGE_INTAKE',
-      message: "I understand. Could you tell me more about how long this has been going on?",
-      question: {
-          text: "How long have you had these symptoms?",
-          type: "choice",
-          options: ["Just started", "A few hours", "A few days", "More than a week"],
-          why_asking: "Duration helps determine urgency."
-      },
-      progress: { percent: 50, completed_fields: ['chief_complaint'], next_field: 'duration' },
-      preliminary_assessment: {
-          urgency: 'ROUTINE',
-          confidence: 30,
-          reasoning: 'Need more information.'
-      },
+      message: q.message,
+      question: { text: q.question.text, type: q.question.type as any, options: q.question.options, why_asking: q.question.why_asking },
+      progress: { percent: progressPercent, completed_fields: completedFields, next_field: q.field },
+      preliminary_assessment: { urgency, confidence, reasoning: `Gathered ${completedFields.length} fields so far.` },
       disclaimer_reminder: true
+    };
+  }
+
+  // ── TURN 4+: Enough info gathered → deliver FINAL ASSESSMENT
+  const { urgency, confidence } = scoreUrgency(allText);
+  const topSpecialty = matchedSpecialists[0]?.specialty || 'General Medicine';
+
+  // Extract chief complaint from the very first user message
+  const chiefComplaint = chatHistory.find(m => m.role === 'user')?.content || userInput;
+
+  return {
+    state: 'ASSESSMENT',
+    message: `Based on what you've told me, here is my assessment. Please remember this is for guidance only.`,
+    question: null,
+    progress: { percent: 100, completed_fields: ['chief_complaint', 'onset', 'severity', 'quality', 'associated_symptoms'], next_field: 'none' },
+    final_assessment: {
+      urgency,
+      urgency_explanation: urgency === 'URGENT'
+        ? 'Your symptoms suggest you should see a doctor within the next 24 hours.'
+        : urgency === 'SELF_CARE'
+        ? 'Your symptoms appear manageable at home with monitoring.'
+        : 'Your symptoms warrant a medical consultation within a few days.',
+      time_to_care: urgency === 'URGENT' ? 'Within 24 hours' : urgency === 'SELF_CARE' ? 'Self-manage' : 'Within a week',
+      summary: `Patient reported: "${chiefComplaint}". Additional details gathered over ${userTurnCount + 1} turns.`,
+      possible_conditions: [
+        {
+          name: allText.includes('headache') ? 'Tension Headache' : allText.includes('stomach') || allText.includes('nausea') ? 'Gastritis' : allText.includes('cough') ? 'Upper Respiratory Infection' : allText.includes('back') ? 'Musculoskeletal Strain' : 'General Symptom Complex',
+          medical_name: allText.includes('headache') ? 'Cephalalgia' : allText.includes('stomach') ? 'Gastritis' : allText.includes('cough') ? 'URI' : allText.includes('back') ? 'Myalgia' : 'Unspecified',
+          likelihood: 'MODERATE' as const,
+          brief: 'Most likely based on the symptoms described.'
+        }
+      ],
+      recommended_specialties: matchedSpecialists.slice(0, 2).map(m => m.specialty).length > 0
+        ? matchedSpecialists.slice(0, 2).map(m => m.specialty)
+        : [topSpecialty],
+      do_now: [
+        'Schedule an appointment with a healthcare provider.',
+        'Keep track of your symptoms and any changes.',
+        'Stay hydrated and get adequate rest.'
+      ],
+      do_not: [
+        'Do not ignore worsening symptoms.',
+        'Do not self-medicate without consulting a doctor.'
+      ],
+      watch_for_worsening: [
+        'Sudden increase in severity',
+        'New symptoms like difficulty breathing or high fever',
+        'Symptoms that don\'t improve within 48 hours'
+      ],
+      self_care_advice: urgency === 'SELF_CARE' ? 'Rest, stay hydrated, and monitor. If symptoms persist beyond 3 days, see a doctor.' : null,
+      emergency_action: { call_emergency: false, emergency_number: '', message: '' }
+    },
+    disclaimer_reminder: true
   };
 }
