@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
-import { ThemeProvider } from '@/components/layout/theme-provider';
+
 import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -33,23 +33,16 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
+      className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased dark`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <TooltipProvider>
-            <Navbar />
-            <main className="flex-grow flex flex-col">
-              {children}
-            </main>
-            <Footer />
-          </TooltipProvider>
-        </ThemeProvider>
+        <TooltipProvider>
+          <Navbar />
+          <main className="flex-grow flex flex-col pt-24">
+            {children}
+          </main>
+          <Footer />
+        </TooltipProvider>
       </body>
     </html>
   );
