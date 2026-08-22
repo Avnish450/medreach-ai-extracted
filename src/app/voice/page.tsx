@@ -233,6 +233,29 @@ export default function VoiceAssistPage() {
           </Alert>
         )}
 
+        {voiceState === "error" && errorType === "service-not-allowed" && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>Speech Recognition Blocked</AlertTitle>
+            <AlertDescription className="flex flex-col gap-2 items-start">
+              Your browser or OS is blocking the Speech Recognition service. This is common in Safari — try Chrome or Edge for the best experience.
+              <div className="flex gap-2 flex-wrap">
+                <Button onClick={handleListen} variant="outline" className="text-black">Retry</Button>
+                <Button onClick={() => window.location.href = "/assessment"} variant="outline" className="text-black">Switch to Text Mode</Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {voiceState === "error" && errorType === "network" && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>Network Error</AlertTitle>
+            <AlertDescription className="flex flex-col gap-2 items-start">
+              Speech Recognition requires an internet connection. Please check your network and try again.
+              <Button onClick={handleListen} variant="outline" className="text-black">Retry</Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow min-h-0">
           
           {/* LEFT: Conversation History */}

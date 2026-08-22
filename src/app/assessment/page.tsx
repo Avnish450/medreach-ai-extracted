@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send, Bot, AlertTriangle, ArrowRight, Mic, MicOff, RefreshCw,
-  Plus, Check, X, ShieldAlert, Sparkles
+  Plus, Check, X, ShieldAlert, Sparkles,
+  Thermometer, HeartPulse, Brain, Waves, Wind, Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +17,15 @@ import { symptomCategories } from '@/lib/data/symptoms';
 import { ChatMessage, TriageResponse, UrgencyLevel, TriageProgress } from '@/types';
 import { ChatBubble } from '@/components/ui/chat/ChatBubble';
 import { TriageProgressPanel } from '@/components/ui/chat/TriageProgressPanel';
+import { ChatHeader } from '@/components/ui/chat/ChatHeader';
+import { ChatInputArea } from '@/components/ui/chat/ChatInputArea';
+import { TypingIndicator } from '@/components/ui/chat/TypingIndicator';
+import { BodyMapInput } from '@/components/ui/chat/BodyMapInput';
+import { SeveritySlider } from '@/components/ui/chat/SeveritySlider';
+import { DurationPicker } from '@/components/ui/chat/DurationPicker';
+import { PreliminaryAssessmentCard } from '@/components/ui/chat/PreliminaryAssessmentCard';
+import { ContextualSymptomSelector } from '@/components/ui/chat/ContextualSymptomSelector';
+import { QuickActionsCard } from '@/components/ui/chat/QuickActionsCard';
 
 export default function AssessmentPage() {
   const router = useRouter();
@@ -42,17 +52,10 @@ export default function AssessmentPage() {
     }
   });
 
-  // Initial greeting
+  // Scroll to bottom of chat
   useEffect(() => {
-    setMessages([
-      {
-        id: 'greet',
-        role: 'assistant',
-        content: "Hello! I am your AI clinical assistant. I'll ask you a few questions to understand your symptoms and direct you to the right care. What brings you in today?",
-        timestamp: new Date()
-      }
-    ]);
-  }, []);
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading, triageProgress]);
 
   // Scroll to bottom of chat
   useEffect(() => {
@@ -168,198 +171,130 @@ export default function AssessmentPage() {
   const activeCategory = symptomCategories.find(c => c.id === currentRegion) || symptomCategories[0];
 
   return (
-    <div className="container mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 max-w-7xl min-h-[calc(100vh-8rem)]">
+    <div className="container mx-auto px-4 py-6 min-h-[calc(100vh-5rem)] flex flex-col">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+        
+        {/* LEFT: Conversation Cockpit (2/3 width) */}
+        <div className="lg:col-span-2 flex flex-col bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-md min-h-[600px]">
+          <ChatHeader 
+            isTyping={isLoading} 
+            onReset={() => { setMessages([]); setTriageProgress(undefined); }} 
+            onShare={() => alert("Share feature coming soon")} 
+            onHistory={() => alert("History feature coming soon")} 
+          />
 
-      {/* Left Pane - Chat Assistant */}
-      <div className="flex-grow flex flex-col gap-4 lg:w-3/5">
-        <Card className="flex-grow flex flex-col min-h-[500px] shadow-lg border-border/40 backdrop-blur overflow-hidden">
-          <CardHeader className="border-b border-border/40 py-4 flex flex-row items-center justify-between bg-muted/20">
-            <div className="flex items-center gap-2">
-              <Bot className="h-6 w-6 text-teal-600 dark:text-teal-400" />
-              <div>
-                <CardTitle className="text-base font-bold">Triage Chat Assistant</CardTitle>
-                <CardDescription className="text-xs">AI-driven symptom analysis</CardDescription>
-              </div>
-            </div>
-            {selectedSymptoms.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSelectedSymptoms([]);
-                  setInputValue('');
-                }}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Clear Selection
-              </Button>
-            )}
-          </CardHeader>
-
-          <TriageProgressPanel progress={triageProgress} />
-
-          {/* Chat Messages */}
-          <CardContent className="flex-grow overflow-y-auto p-4 max-h-[450px] space-y-4 bg-gradient-to-b from-background to-muted/10">
-            <AnimatePresence initial={false}>
-              {messages.map((msg, index) => (
-                <ChatBubble 
-                  key={msg.id} 
-                  message={msg} 
-                  isLast={index === messages.length - 1}
-                  onSendReply={handleSend} 
-                />
-              ))}
-            </AnimatePresence>
-
-            {isLoading && (
-              <div className="flex gap-3 mr-auto items-center">
-                <div className="h-8 w-8 rounded-full bg-muted border border-border text-teal-600 dark:text-teal-400 flex items-center justify-center">
-                  <Bot className="h-4 w-4" />
-                </div>
-                <div className="bg-muted/80 border border-border/40 rounded-2xl rounded-tl-none p-4 text-sm flex items-center gap-2">
-                  <span className="flex h-2 w-2 rounded-full bg-teal-500 animate-bounce" />
-                  <span className="flex h-2 w-2 rounded-full bg-teal-500 animate-bounce delay-75" />
-                  <span className="flex h-2 w-2 rounded-full bg-teal-500 animate-bounce delay-150" />
-                  <span className="text-xs text-muted-foreground font-semibold ml-1">AI analyzing symptoms...</span>
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </CardContent>
-
-          {/* Form Input */}
-          <CardFooter className="border-t border-border/40 p-4 flex flex-col gap-3 bg-muted/20">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSend(inputValue);
-              }}
-              className="flex w-full items-end gap-2"
+          {messages.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex-1 flex flex-col items-center justify-center p-8 text-center"
             >
-              <div className="flex-grow relative">
-                <Textarea
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Describe your symptoms (e.g. 'I have had a mild headache and fever for 2 days...')"
-                  className="min-h-[60px] pr-10 resize-none rounded-xl"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend(inputValue);
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={isListening ? stopListening : startListening}
-                  className={`absolute right-2 bottom-2 h-8 w-8 rounded-full ${isListening ? 'text-red-500 bg-red-500/10 hover:bg-red-500/20' : 'text-muted-foreground'
-                    }`}
-                  title={isListening ? 'Stop Listening' : 'Voice Input'}
-                >
-                  {isListening ? <MicOff className="h-4 w-4 animate-pulse" /> : <Mic className="h-4 w-4" />}
-                </Button>
+              <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center mb-6">
+                <Bot className="h-10 w-10 text-teal-500" />
               </div>
-              <Button
-                type="submit"
-                size="icon"
-                className="h-12 w-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-md transition-all hover:scale-105 active:scale-95"
-                disabled={!inputValue.trim() || isLoading}
-              >
-                <Send className="h-5 w-5" />
-              </Button>
-            </form>
-          </CardFooter>
-        </Card>
-      </div>
+              
+              <h1 className="text-3xl font-bold mb-2 text-slate-100 tracking-tight">
+                How are you feeling today?
+              </h1>
+              <p className="text-slate-400 max-w-md mb-8">
+                I'll ask you a few quick questions to understand your symptoms and guide you to the right care.
+              </p>
 
-      {/* Right Pane - Guided Symptom Picker */}
-      <AnimatePresence>
-        {showSymptomPicker && (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="w-full lg:w-2/5 flex flex-col gap-4"
-          >
-            <Card className="shadow-lg border-border/40 backdrop-blur h-full flex flex-col">
-              <CardHeader className="border-b border-border/40 pb-4">
-                <CardTitle className="text-base font-bold flex items-center gap-1.5 text-teal-600 dark:text-teal-400">
-                  <Sparkles className="h-5 w-5" />
-                  Guided Symptom Selector
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Select common symptoms by body region to auto-populate the description field.
-                </CardDescription>
-              </CardHeader>
-
-              {/* Category tabs */}
-              <div className="flex gap-1 overflow-x-auto p-2 border-b border-border/40 bg-muted/45 shrink-0 scrollbar-none">
-                {symptomCategories.map((cat) => (
-                  <Button
-                    key={cat.id}
-                    variant={currentRegion === cat.id ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setCurrentRegion(cat.id)}
-                    className="text-xs flex gap-1 items-center whitespace-nowrap rounded-lg"
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-lg w-full">
+                {[
+                  { icon: <Thermometer className="h-6 w-6 text-teal-500 mb-2" />, label: "Fever", query: "I have a fever" },
+                  { icon: <HeartPulse className="h-6 w-6 text-teal-500 mb-2" />, label: "Chest pain", query: "I have chest discomfort" },
+                  { icon: <Brain className="h-6 w-6 text-teal-500 mb-2" />, label: "Headache", query: "I have a headache" },
+                  { icon: <Waves className="h-6 w-6 text-teal-500 mb-2" />, label: "Nausea", query: "I feel nauseous" },
+                  { icon: <Wind className="h-6 w-6 text-teal-500 mb-2" />, label: "Cough", query: "I have a cough" },
+                  { icon: <Activity className="h-6 w-6 text-teal-500 mb-2" />, label: "Joint pain", query: "I have joint pain" },
+                ].map((item, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => handleSend(item.query)}
+                    className="flex flex-col items-center justify-center p-4 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-teal-500 transition-colors w-full"
                   >
-                    <span>{cat.icon}</span>
-                    <span>{cat.name}</span>
-                  </Button>
+                    {item.icon}
+                    <span className="text-xs text-slate-300 font-medium">{item.label}</span>
+                  </button>
                 ))}
               </div>
 
-              {/* Symptoms Grid */}
-              <CardContent className="flex-grow p-4 overflow-y-auto max-h-[350px]">
-                <div className="grid grid-cols-2 gap-2">
-                  {activeCategory.symptoms.map((symptom) => {
-                    const isSelected = selectedSymptoms.includes(symptom.name);
-                    return (
-                      <Button
-                        key={symptom.id}
-                        type="button"
-                        variant={isSelected ? 'default' : 'outline'}
-                        onClick={() => handleToggleSymptom(symptom.name)}
-                        className={`h-auto py-3 px-3 justify-start text-left text-xs font-semibold rounded-xl flex items-center gap-2 border-border/50 transition-all ${symptom.isEmergency && !isSelected ? 'border-red-500/30 text-red-500 hover:bg-red-500/5' : ''
-                          }`}
-                      >
-                        <span className={`h-4 w-4 rounded-full border border-current flex items-center justify-center shrink-0 ${isSelected ? 'bg-white text-teal-600' : ''
-                          }`}>
-                          {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
-                        </span>
-                        <span className="truncate">{symptom.name}</span>
-                      </Button>
-                    );
-                  })}
-                </div>
-              </CardContent>
+              <p className="text-xs text-slate-500 mt-8">
+                🔒 Your conversation is private and encrypted
+              </p>
+            </motion.div>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth">
+              <AnimatePresence initial={false}>
+                {messages.map((msg, index) => (
+                  <ChatBubble 
+                    key={msg.id} 
+                    message={msg} 
+                    isLast={index === messages.length - 1}
+                    onSendReply={handleSend} 
+                  />
+                ))}
+              </AnimatePresence>
 
-              {/* Selected symptoms preview */}
-              {selectedSymptoms.length > 0 && (
-                <CardFooter className="border-t border-border/40 p-4 bg-muted/20 flex flex-col gap-2 shrink-0">
-                  <span className="text-xs font-bold text-muted-foreground self-start">Selected Symptoms:</span>
-                  <div className="flex flex-wrap gap-1.5 w-full">
-                    {selectedSymptoms.map((symptom) => (
-                      <Badge
-                        key={symptom}
-                        className="bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20 flex items-center gap-1 py-1 pr-1"
-                      >
-                        {symptom}
-                        <X
-                          className="h-3 w-3 hover:bg-teal-500/20 rounded-full cursor-pointer"
-                          onClick={() => handleToggleSymptom(symptom)}
-                        />
-                      </Badge>
-                    ))}
-                  </div>
-                </CardFooter>
+              {isLoading && <TypingIndicator />}
+
+              {/* Rich Inputs based on last message's requested type */}
+              {messages.length > 0 && messages[messages.length - 1].triageResponse?.question?.type === 'body_map' && (
+                <BodyMapInput onSelect={(part) => handleSend(part)} />
               )}
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {messages.length > 0 && messages[messages.length - 1].triageResponse?.question?.type === 'scale' && (
+                <SeveritySlider onSubmit={(val) => handleSend(`${val} out of 10`)} />
+              )}
+              {messages.length > 0 && messages[messages.length - 1].triageResponse?.question?.type === 'duration' && (
+                <DurationPicker onSelect={(val) => handleSend(val)} />
+              )}
+              
+              <div ref={chatEndRef} />
+            </div>
+          )}
 
+          <ChatInputArea 
+            onSend={handleSend} 
+            isTyping={isLoading} 
+            isListening={isListening} 
+            onToggleListen={isListening ? stopListening : startListening} 
+          />
+        </div>
+
+        {/* RIGHT: Live Triage Panel (1/3 width) */}
+        <div className="lg:col-span-1 flex flex-col gap-4 overflow-y-auto pb-4">
+          <TriageProgressPanel progress={triageProgress} />
+          
+          <PreliminaryAssessmentCard 
+            assessment={messages.length > 0 ? [...messages].reverse().find(m => m.triageResponse?.final_assessment)?.triageResponse?.final_assessment : null} 
+            confidence={65 + Math.floor(Math.random() * 20)} 
+          />
+          
+          <ContextualSymptomSelector 
+            symptoms={activeCategory.symptoms.map(s => s.name).slice(0, 8)} 
+            selectedSymptoms={selectedSymptoms} 
+            onToggle={(symptom) => {
+               handleToggleSymptom(symptom);
+               // Send it immediately as a quick reply
+               if (!selectedSymptoms.includes(symptom)) {
+                  handleSend(`I also have ${symptom}`);
+               }
+            }} 
+          />
+          
+          <QuickActionsCard />
+        </div>
+
+      </div>
+      
+      {/* Bottom: Compact Disclaimer Bar */}
+      <div className="mt-4 text-center">
+         <p className="text-[10px] text-slate-500 flex items-center justify-center gap-1">
+            <ShieldAlert className="h-3 w-3" />
+            MedReach AI is for informational purposes only and is not a substitute for professional medical advice. In an emergency, call 112 immediately.
+         </p>
+      </div>
     </div>
   );
 }

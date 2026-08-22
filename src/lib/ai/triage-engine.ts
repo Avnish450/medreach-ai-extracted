@@ -92,120 +92,243 @@ export async function performTriage(
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// STATEFUL LOCAL TRIAGE ENGINE
-// Tracks conversation turn count and progresses through OPQRST questions,
-// gathering information from user answers, and producing a final assessment.
+// STATEFUL LOCAL TRIAGE ENGINE (CONTEXT-AWARE)
+// Personalises every message with the actual symptoms the user described.
 // ──────────────────────────────────────────────────────────────────────────────
 
-// Collect all user messages from chat history into a single blob for keyword analysis
+/** Merge all user turns into one lowercase string for keyword analysis */
 function getAllUserText(userInput: string, chatHistory: { role: string; content: string }[]): string {
-  const pastUserMessages = chatHistory
-    .filter(m => m.role === 'user')
-    .map(m => m.content)
-    .join(' ');
-  return `${pastUserMessages} ${userInput}`.toLowerCase();
+  const past = chatHistory.filter(m => m.role === 'user').map(m => m.content).join(' ');
+  return `${past} ${userInput}`.toLowerCase();
 }
 
-// Simple keyword urgency scorer
+/** Return the very first thing the user said (their chief complaint) */
+function getChiefComplaint(chatHistory: { role: string; content: string }[], fallback: string): string {
+  return chatHistory.find(m => m.role === 'user')?.content || fallback;
+}
+
+interface SymptomProfile {
+  label: string;
+  bodyPart: string;
+  conditions: Array<{ name: string; medical_name: string; likelihood: 'HIGH' | 'MODERATE' | 'LOW'; brief: string }>;
+  specialties: string[];
+  doNow: string[];
+  doNot: string[];
+  watchFor: string[];
+  selfCare: string;
+}
+
+/** Map symptom keywords to a rich clinical profile */
+function detectSymptomCategory(text: string): SymptomProfile {
+  if (text.match(/chest|heart|palpitation|cardiac/)) return {
+    label: 'chest discomfort', bodyPart: 'chest',
+    conditions: [
+      { name: 'Musculoskeletal Chest Pain', medical_name: 'Costochondritis / Chest Wall Strain', likelihood: 'MODERATE', brief: 'Cartilage inflammation connecting ribs — very common, usually benign.' },
+      { name: 'Acid Reflux', medical_name: 'Gastroesophageal Reflux Disease (GERD)', likelihood: 'MODERATE', brief: 'Stomach acid rising upward can closely mimic chest pain.' },
+      { name: 'Cardiac Cause', medical_name: 'Angina / Ischaemic Heart Disease', likelihood: 'LOW', brief: 'Must always be ruled out, especially with exertion, radiation to arm/jaw, or sweating.' },
+    ],
+    specialties: ['Cardiology', 'General Medicine'],
+    doNow: ['See a doctor today — chest symptoms warrant same-day evaluation', 'Note if pain radiates to your arm, jaw, or back', 'Avoid physical exertion until evaluated'],
+    doNot: ['Do not dismiss worsening or radiating chest pain', 'Do not self-medicate with aspirin without medical guidance'],
+    watchFor: ['Pain spreading to left arm, jaw, or between shoulder blades', 'Shortness of breath, cold sweat, or nausea alongside chest pain', 'Lightheadedness or fainting'],
+    selfCare: 'Sit upright, avoid heavy meals and caffeine, rest. Seek prompt care — chest symptoms should not wait.',
+  };
+
+  if (text.match(/head|migraine|skull|temple|forehead/)) return {
+    label: 'headache', bodyPart: 'head',
+    conditions: [
+      { name: 'Tension Headache', medical_name: 'Tension-Type Cephalalgia', likelihood: 'HIGH', brief: 'Band-like pressure around the head — most common headache type, often from stress or posture.' },
+      { name: 'Migraine', medical_name: 'Migraine with or without Aura', likelihood: 'MODERATE', brief: 'Throbbing, often one-sided pain that may include nausea, vomiting, or light sensitivity.' },
+      { name: 'Sinus Headache', medical_name: 'Sinusitis-Associated Cephalalgia', likelihood: 'LOW', brief: 'Pressure/pain behind the forehead or cheekbones from sinus congestion.' },
+    ],
+    specialties: ['Neurology', 'General Medicine'],
+    doNow: ['Rest in a quiet, dark room', 'Stay well hydrated — dehydration is a common trigger', 'Note whether this headache feels different from your usual ones'],
+    doNot: ['Do not overuse pain relievers — daily use can cause rebound headaches', 'Do not ignore a sudden "worst headache of your life"'],
+    watchFor: ['Sudden onset thunderclap headache', 'Headache with fever and stiff neck', 'Visual disturbances, one-sided weakness, or slurred speech'],
+    selfCare: 'Drink water, rest in a dark room, apply a cool compress to your forehead. Paracetamol or ibuprofen as directed on packaging.',
+  };
+
+  if (text.match(/stomach|abdomen|belly|nausea|vomit|diarrhea|diarrhoea|bowel|gut|digest|cramp/)) return {
+    label: 'stomach and digestive discomfort', bodyPart: 'abdomen',
+    conditions: [
+      { name: 'Gastroenteritis', medical_name: 'Acute Gastroenteritis (Stomach Flu)', likelihood: 'HIGH', brief: 'Viral or bacterial infection causing nausea, vomiting, or diarrhoea — usually short-lived.' },
+      { name: 'Acid Reflux / Indigestion', medical_name: 'GERD / Dyspepsia', likelihood: 'MODERATE', brief: 'Burning or bloating after meals from stomach acid irritation.' },
+      { name: 'Irritable Bowel Syndrome', medical_name: 'IBS', likelihood: 'LOW', brief: 'Chronic gut condition with alternating cramps, constipation, and diarrhoea.' },
+    ],
+    specialties: ['Gastroenterology', 'General Medicine'],
+    doNow: ['Sip water or an oral rehydration solution (ORS) frequently', 'Eat bland foods — rice, toast, boiled potatoes, bananas', 'Rest and avoid strenuous activity'],
+    doNot: ['Do not eat spicy, oily, or dairy-heavy foods while symptomatic', 'Do not take NSAIDs (ibuprofen) on an empty stomach — it can worsen irritation'],
+    watchFor: ['Signs of dehydration — dry mouth, dark urine, dizziness', 'Blood in vomit or stool', 'Severe or rigid abdominal pain'],
+    selfCare: 'Clear fluids first, then bland foods. Most gastroenteritis resolves within 1–3 days.',
+  };
+
+  if (text.match(/cough|throat|cold|sneeze|mucus|phlegm|respiratory|breath|lung|wheeze/)) return {
+    label: 'respiratory symptoms', bodyPart: 'chest and throat',
+    conditions: [
+      { name: 'Upper Respiratory Infection', medical_name: 'Viral URI / Common Cold', likelihood: 'HIGH', brief: 'Most coughs and sore throats are viral — antibiotics will not help.' },
+      { name: 'Allergic Rhinitis', medical_name: 'Allergic Rhinitis', likelihood: 'MODERATE', brief: 'Runny nose, sneezing, and congestion triggered by allergens like dust, pollen, or pets.' },
+      { name: 'Bronchitis', medical_name: 'Acute Bronchitis', likelihood: 'LOW', brief: 'Airway inflammation producing a persistent, often productive cough lasting 1–3 weeks.' },
+    ],
+    specialties: ['Pulmonology', 'General Medicine', 'ENT'],
+    doNow: ['Get plenty of rest', 'Drink warm fluids — honey and lemon in warm water soothes the throat', 'Use a humidifier if the air is dry'],
+    doNot: ['Do not demand antibiotics for a viral infection — they won\'t help', 'Do not smoke or be around smoke or other irritants'],
+    watchFor: ['High fever above 38.5°C lasting more than 3 days', 'Difficulty breathing or chest tightness at rest', 'Coughing up blood'],
+    selfCare: 'Rest, warm fluids, steam inhalation. OTC lozenges and saline nasal spray can ease symptoms.',
+  };
+
+  if (text.match(/back|spine|lumbar|neck|shoulder|muscle|joint|knee|hip|arthritis|sciatica/)) return {
+    label: 'musculoskeletal pain', bodyPart: 'back, joints, or muscles',
+    conditions: [
+      { name: 'Muscle Strain', medical_name: 'Myofascial Strain', likelihood: 'HIGH', brief: 'Overstretched or micro-torn muscle fibres — very common, usually resolves with rest.' },
+      { name: 'Disc Irritation', medical_name: 'Intervertebral Disc Herniation', likelihood: 'MODERATE', brief: 'A disc pressing on a nearby nerve, causing pain that can radiate down the arm or leg.' },
+      { name: 'Arthritis Flare', medical_name: 'Osteoarthritis / Inflammatory Arthritis', likelihood: 'LOW', brief: 'Joint inflammation causing stiffness and aching — often worse in the morning.' },
+    ],
+    specialties: ['Orthopedics', 'Physiotherapy', 'Rheumatology'],
+    doNow: ['Apply ice for the first 48 hours, then switch to heat', 'Stay gently active — complete bed rest slows recovery', 'OTC anti-inflammatories (ibuprofen / naproxen) if not contraindicated'],
+    doNot: ['Do not lift heavy objects or strain the affected area', 'Do not stay completely immobile — movement promotes healing'],
+    watchFor: ['Pain radiating down arm or leg with tingling or numbness', 'Loss of bladder or bowel control — this is an emergency', 'Inability to bear weight or severe worsening'],
+    selfCare: 'Ice/heat rotation, gentle movement, and over-the-counter pain relief. Most strains improve within 1–2 weeks.',
+  };
+
+  if (text.match(/skin|rash|itch|hive|burn|blister|wound|cut|sore|acne|spot/)) return {
+    label: 'skin concerns', bodyPart: 'skin',
+    conditions: [
+      { name: 'Allergic Skin Reaction', medical_name: 'Contact Dermatitis / Urticaria', likelihood: 'HIGH', brief: 'Itchy rash or hives from contact with an allergen or irritant.' },
+      { name: 'Eczema Flare', medical_name: 'Atopic Dermatitis', likelihood: 'MODERATE', brief: 'Chronic skin condition causing dry, itchy, and inflamed patches.' },
+      { name: 'Fungal Infection', medical_name: 'Tinea / Dermatophytosis', likelihood: 'LOW', brief: 'Fungal overgrowth — common in warm, moist areas of the body.' },
+    ],
+    specialties: ['Dermatology', 'General Medicine'],
+    doNow: ['Keep the area clean and dry', 'Avoid scratching — it can introduce infection', 'Note any recent new products, foods, or materials you may have contacted'],
+    doNot: ['Do not apply random creams or oils without knowing the cause', 'Do not pop blisters or pick at sores'],
+    watchFor: ['Rash spreading rapidly or blistering extensively', 'Signs of infection — pus, increasing warmth, swelling', 'Throat swelling or breathing difficulty (anaphylaxis — seek immediate help)'],
+    selfCare: 'Gentle cleansing with mild soap, moisturise if dry. Antihistamines for itching. See a dermatologist if not improving within 1 week.',
+  };
+
+  if (text.match(/fever|temperature|chills|hot|sweat|malaise|flu/)) return {
+    label: 'fever and systemic illness', bodyPart: 'whole body',
+    conditions: [
+      { name: 'Viral Syndrome', medical_name: 'Viral Febrile Illness', likelihood: 'HIGH', brief: 'Fever is the body\'s immune response — most commonly triggered by a virus.' },
+      { name: 'Bacterial Infection', medical_name: 'Bacterial Infection (site unspecified)', likelihood: 'MODERATE', brief: 'Some infections — UTI, throat, chest — are bacterial and may require antibiotics.' },
+      { name: 'Dengue / Malaria', medical_name: 'Arborviral / Parasitic Fever', likelihood: 'LOW', brief: 'Relevant if you have been in a mosquito-prone area recently.' },
+    ],
+    specialties: ['General Medicine', 'Infectious Disease'],
+    doNow: ['Take paracetamol as directed to reduce fever and discomfort', 'Drink plenty of fluids — fever causes significant fluid loss', 'Rest completely and avoid strenuous activity'],
+    doNot: ['Do not give aspirin to children under 16', 'Do not use cold water immersion to cool a fever'],
+    watchFor: ['Fever above 39.5°C for more than 3 days', 'Stiff neck or a rash with fever — urgent', 'Confusion, extreme difficulty waking, or severe lethargy'],
+    selfCare: 'Paracetamol, rest, and fluids. Most viral fevers break on their own within 2–3 days.',
+  };
+
+  // Generic fallback
+  return {
+    label: 'general symptoms', bodyPart: 'general',
+    conditions: [
+      { name: 'General Symptom Complex', medical_name: 'Unspecified Symptom Cluster', likelihood: 'MODERATE', brief: 'Symptoms described do not clearly match a single pattern — clinical evaluation is recommended.' },
+    ],
+    specialties: ['General Medicine'],
+    doNow: ['Document your symptoms carefully — include timing, severity, and any triggers', 'Book a consultation with a General Physician', 'Stay hydrated and rest'],
+    doNot: ['Do not self-diagnose or take unguided medication', 'Do not ignore persisting or worsening symptoms'],
+    watchFor: ['Any sudden or significant worsening', 'New symptoms developing alongside current ones', 'Symptoms that don\'t improve within 5 days'],
+    selfCare: 'Rest, stay hydrated, and monitor. See a doctor if symptoms do not improve within 3 days.',
+  };
+}
+
+/** Score overall urgency from all collected user text */
 function scoreUrgency(allText: string): { urgency: UrgencyLevel; confidence: number } {
-  const high = ['severe', 'excruciating', 'unbearable', 'worst', 'blood', 'faint', 'dizzy', 'vomit', 'numbness', 'weakness', 'swelling', 'pregnant'];
-  const moderate = ['pain', 'ache', 'fever', 'cough', 'sore', 'nausea', 'rash', 'burning', 'stiff', 'cramp', 'swollen', 'tender'];
-  const low = ['mild', 'slight', 'little', 'minor', 'occasional', 'sometimes', 'dull'];
+  const high = ['severe', 'excruciating', 'unbearable', 'worst', 'blood', 'faint', 'dizzy', 'vomiting', 'numbness', 'weakness', 'swelling', 'pregnant', ' 8', ' 9', '10'];
+  const moderate = ['pain', 'ache', 'fever', 'cough', 'sore', 'nausea', 'rash', 'burning', 'stiff', 'cramp', 'swollen', 'tender', ' 5', ' 6', ' 7'];
+  const low = ['mild', 'slight', 'little', 'minor', 'occasional', 'sometimes', 'dull', ' 1', ' 2', ' 3'];
 
   let score = 0;
   high.forEach(k => { if (allText.includes(k)) score += 3; });
   moderate.forEach(k => { if (allText.includes(k)) score += 1; });
   low.forEach(k => { if (allText.includes(k)) score -= 1; });
 
-  if (score >= 8) return { urgency: 'URGENT', confidence: 75 };
-  if (score >= 4) return { urgency: 'ROUTINE', confidence: 60 };
-  return { urgency: 'SELF_CARE', confidence: 45 };
+  if (score >= 8) return { urgency: 'URGENT', confidence: 76 };
+  if (score >= 4) return { urgency: 'ROUTINE', confidence: 62 };
+  return { urgency: 'SELF_CARE', confidence: 52 };
 }
 
-// The ordered intake questions following OPQRST
-const INTAKE_QUESTIONS: Array<{
-  field: string;
-  message: string;
-  question: { text: string; type: string; options: string[]; why_asking: string };
-}> = [
-  {
-    field: 'onset',
-    message: "Thank you for sharing that. Let me understand the timeline.",
-    question: {
-      text: "When did this start, and was it sudden or gradual?",
-      type: "choice",
-      options: ["Just now, suddenly", "Within the last few hours", "A few days ago", "More than a week ago", "It's been gradual"],
-      why_asking: "Sudden vs. gradual onset helps narrow down possible causes."
+/** Build personalised OPQRST questions that reference the patient's chief complaint */
+function buildIntakeQuestions(chiefComplaint: string) {
+  // Trim to a concise label for embedding in messages
+  const label = chiefComplaint.length > 60 ? chiefComplaint.slice(0, 57) + '…' : chiefComplaint;
+
+  return [
+    {
+      field: 'onset',
+      message: `I hear you — "${label}" can be really concerning. Let me ask a few quick questions so I can understand exactly what's going on.`,
+      question: {
+        text: 'When did this start, and did it come on suddenly or gradually?',
+        type: 'choice',
+        options: ['Just now, very suddenly', 'Within the last few hours', 'Started today', 'A few days ago', 'More than a week ago'],
+        why_asking: 'Sudden vs. gradual onset often points to very different underlying causes.'
+      }
+    },
+    {
+      field: 'severity',
+      message: `Thanks for that context. Now let me understand how much "${label}" is affecting you right now.`,
+      question: {
+        text: 'On a scale of 0 to 10, how severe is it — where 0 is no discomfort and 10 is the worst you can imagine?',
+        type: 'scale',
+        options: ['0–2 (Barely noticeable)', '3–4 (Mild, manageable)', '5–6 (Moderate, distracting)', '7–8 (Severe, hard to function)', '9–10 (Unbearable)'],
+        why_asking: 'Severity helps determine how urgently you need medical attention.'
+      }
+    },
+    {
+      field: 'quality',
+      message: 'Got it — that helps a lot. Now, describing the sensation will help me narrow down what might be causing this.',
+      question: {
+        text: 'How would you best describe what it feels like?',
+        type: 'choice',
+        options: ['Sharp or stabbing', 'Dull and aching', 'Burning or hot', 'Pressure or tightness', 'Throbbing or pulsating', 'Tingling or numbness', 'Just generally unwell / hard to describe'],
+        why_asking: 'The nature of the sensation is a key diagnostic clue.'
+      }
+    },
+    {
+      field: 'associated_symptoms',
+      message: 'Almost done — this last question helps me see the full picture before giving you my assessment.',
+      question: {
+        text: 'Are you experiencing any of these alongside your main symptom?',
+        type: 'choice',
+        options: ['Fever or chills', 'Nausea or vomiting', 'Fatigue or weakness', 'Headache', 'Difficulty breathing', 'Dizziness or lightheadedness', 'None of these'],
+        why_asking: 'Associated symptoms often reveal whether something more serious is happening.'
+      }
     }
-  },
-  {
-    field: 'severity',
-    message: "Got it. Let me assess how much this is affecting you.",
-    question: {
-      text: "On a scale of 0-10, how would you rate the severity right now?",
-      type: "scale",
-      options: ["0-2 (Barely noticeable)", "3-4 (Mild)", "5-6 (Moderate)", "7-8 (Severe)", "9-10 (Worst imaginable)"],
-      why_asking: "Severity helps us gauge how urgently you need care."
-    }
-  },
-  {
-    field: 'quality',
-    message: "I appreciate you bearing with me. One more question to help narrow things down.",
-    question: {
-      text: "How would you describe the sensation?",
-      type: "choice",
-      options: ["Sharp or stabbing", "Dull or aching", "Burning", "Pressure or tightness", "Throbbing", "Tingling or numbness", "Other"],
-      why_asking: "The type of sensation helps differentiate between possible conditions."
-    }
-  },
-  {
-    field: 'associated_symptoms',
-    message: "Almost there. This will help me put the full picture together.",
-    question: {
-      text: "Are you experiencing any of these alongside your main symptom?",
-      type: "choice",
-      options: ["Fever or chills", "Nausea or vomiting", "Fatigue or weakness", "Headache", "Difficulty breathing", "Dizziness", "None of these"],
-      why_asking: "Associated symptoms can indicate if something more serious is going on."
-    }
-  }
-];
+  ];
+}
 
 function getStatefulTriageResult(
   userInput: string,
   chatHistory: { role: string; content: string }[],
   userInfo?: UserInfo
 ): TriageResponse {
-  // Count how many times the USER has spoken (not counting the current message)
   const userTurnCount = chatHistory.filter(m => m.role === 'user').length;
-  // userTurnCount=0 means this is the first user message (chief complaint)
-  // userTurnCount=1 means chief complaint was given, now answer to Q1
-  // etc.
-
   const allText = getAllUserText(userInput, chatHistory);
+  const chiefComplaint = getChiefComplaint(chatHistory, userInput);
+  const symptomProfile = detectSymptomCategory(allText);
   const matchedSpecialists = matchSymptomsToSpecialists(
     chatHistory.filter(m => m.role === 'user').map(m => m.content).concat(userInput)
   );
+  const INTAKE_QUESTIONS = buildIntakeQuestions(chiefComplaint);
 
-  // ── TURN 0: User just gave their chief complaint → ask first OPQRST question
+  // ── TURN 0: Chief complaint received → ask first OPQRST question
   if (userTurnCount === 0) {
     const q = INTAKE_QUESTIONS[0];
     return {
       state: 'TRIAGE_INTAKE',
-      message: `Thank you for telling me about that. I'd like to ask a few questions to understand your situation better.`,
+      message: q.message,
       question: { text: q.question.text, type: q.question.type as any, options: q.question.options, why_asking: q.question.why_asking },
-      progress: { percent: 20, completed_fields: ['chief_complaint'], next_field: q.field },
-      preliminary_assessment: { urgency: 'ROUTINE', confidence: 25, reasoning: 'Initial symptom reported, gathering more details.' },
+      progress: { percent: 15, completed_fields: ['chief_complaint'], next_field: q.field },
+      preliminary_assessment: { urgency: 'ROUTINE', confidence: 20, reasoning: 'Chief complaint noted — gathering onset and severity details.' },
       disclaimer_reminder: true
     };
   }
 
-  // ── TURNS 1-3: Continue OPQRST intake
-  const questionIndex = Math.min(userTurnCount, INTAKE_QUESTIONS.length - 1);
-  
+  // ── TURNS 1–3: Continue OPQRST intake with personalised messages
   if (userTurnCount < INTAKE_QUESTIONS.length) {
-    const q = INTAKE_QUESTIONS[questionIndex];
-    const completedFields = ['chief_complaint', ...INTAKE_QUESTIONS.slice(0, questionIndex).map(iq => iq.field)];
-    const progressPercent = Math.min(20 + (questionIndex * 20), 80);
+    const q = INTAKE_QUESTIONS[userTurnCount];
+    const completedFields = ['chief_complaint', ...INTAKE_QUESTIONS.slice(0, userTurnCount).map(iq => iq.field)];
+    const progressPercent = Math.min(15 + userTurnCount * 22, 80);
     const { urgency, confidence } = scoreUrgency(allText);
 
     return {
@@ -213,58 +336,45 @@ function getStatefulTriageResult(
       message: q.message,
       question: { text: q.question.text, type: q.question.type as any, options: q.question.options, why_asking: q.question.why_asking },
       progress: { percent: progressPercent, completed_fields: completedFields, next_field: q.field },
-      preliminary_assessment: { urgency, confidence, reasoning: `Gathered ${completedFields.length} fields so far.` },
+      preliminary_assessment: { urgency, confidence, reasoning: `Pattern is consistent with ${symptomProfile.label} — ${completedFields.length} data points collected.` },
       disclaimer_reminder: true
     };
   }
 
-  // ── TURN 4+: Enough info gathered → deliver FINAL ASSESSMENT
+  // ── TURN 4+: Deliver contextual FINAL ASSESSMENT
   const { urgency, confidence } = scoreUrgency(allText);
-  const topSpecialty = matchedSpecialists[0]?.specialty || 'General Medicine';
 
-  // Extract chief complaint from the very first user message
-  const chiefComplaint = chatHistory.find(m => m.role === 'user')?.content || userInput;
+  const urgencyExplanation =
+    urgency === 'URGENT'
+      ? `Based on the ${symptomProfile.label} you described — combined with the severity and associated symptoms — you should be seen by a doctor within the next few hours. Please do not delay.`
+      : urgency === 'SELF_CARE'
+      ? `Your ${symptomProfile.label} appears relatively mild based on what you've shared. You can likely manage this at home for now, but keep monitoring for any changes.`
+      : `Your ${symptomProfile.label} warrants a medical consultation within a few days. There is no immediate emergency, but please don't delay if symptoms worsen.`;
+
+  const timeTocare: 'NOW' | 'Within 2 hours' | 'Within 24 hours' | 'Within a week' | 'Self-manage' =
+    urgency === 'URGENT' ? 'Within 24 hours' : urgency === 'SELF_CARE' ? 'Self-manage' : 'Within a week';
+
+  const specialties =
+    matchedSpecialists.slice(0, 2).map(m => m.specialty).length > 0
+      ? matchedSpecialists.slice(0, 2).map(m => m.specialty)
+      : symptomProfile.specialties;
 
   return {
     state: 'ASSESSMENT',
-    message: `Based on what you've told me, here is my assessment. Please remember this is for guidance only.`,
+    message: `Thank you for sharing all of that with me. Based on everything you've told me about your ${symptomProfile.label}, here is my triage assessment. Please remember — this is guidance only, not a medical diagnosis.`,
     question: null,
     progress: { percent: 100, completed_fields: ['chief_complaint', 'onset', 'severity', 'quality', 'associated_symptoms'], next_field: 'none' },
     final_assessment: {
       urgency,
-      urgency_explanation: urgency === 'URGENT'
-        ? 'Your symptoms suggest you should see a doctor within the next 24 hours.'
-        : urgency === 'SELF_CARE'
-        ? 'Your symptoms appear manageable at home with monitoring.'
-        : 'Your symptoms warrant a medical consultation within a few days.',
-      time_to_care: urgency === 'URGENT' ? 'Within 24 hours' : urgency === 'SELF_CARE' ? 'Self-manage' : 'Within a week',
-      summary: `Patient reported: "${chiefComplaint}". Additional details gathered over ${userTurnCount + 1} turns.`,
-      possible_conditions: [
-        {
-          name: allText.includes('headache') ? 'Tension Headache' : allText.includes('stomach') || allText.includes('nausea') ? 'Gastritis' : allText.includes('cough') ? 'Upper Respiratory Infection' : allText.includes('back') ? 'Musculoskeletal Strain' : 'General Symptom Complex',
-          medical_name: allText.includes('headache') ? 'Cephalalgia' : allText.includes('stomach') ? 'Gastritis' : allText.includes('cough') ? 'URI' : allText.includes('back') ? 'Myalgia' : 'Unspecified',
-          likelihood: 'MODERATE' as const,
-          brief: 'Most likely based on the symptoms described.'
-        }
-      ],
-      recommended_specialties: matchedSpecialists.slice(0, 2).map(m => m.specialty).length > 0
-        ? matchedSpecialists.slice(0, 2).map(m => m.specialty)
-        : [topSpecialty],
-      do_now: [
-        'Schedule an appointment with a healthcare provider.',
-        'Keep track of your symptoms and any changes.',
-        'Stay hydrated and get adequate rest.'
-      ],
-      do_not: [
-        'Do not ignore worsening symptoms.',
-        'Do not self-medicate without consulting a doctor.'
-      ],
-      watch_for_worsening: [
-        'Sudden increase in severity',
-        'New symptoms like difficulty breathing or high fever',
-        'Symptoms that don\'t improve within 48 hours'
-      ],
-      self_care_advice: urgency === 'SELF_CARE' ? 'Rest, stay hydrated, and monitor. If symptoms persist beyond 3 days, see a doctor.' : null,
+      urgency_explanation: urgencyExplanation,
+      time_to_care: timeTocare,
+      summary: `Patient described ${symptomProfile.label} affecting the ${symptomProfile.bodyPart}. Chief complaint: "${chiefComplaint}". Assessed over ${userTurnCount + 1} turns covering onset, severity, sensation quality, and associated symptoms.`,
+      possible_conditions: symptomProfile.conditions,
+      recommended_specialties: specialties as string[],
+      do_now: symptomProfile.doNow,
+      do_not: symptomProfile.doNot,
+      watch_for_worsening: symptomProfile.watchFor,
+      self_care_advice: urgency === 'SELF_CARE' ? symptomProfile.selfCare : null,
       emergency_action: { call_emergency: false, emergency_number: '', message: '' }
     },
     disclaimer_reminder: true

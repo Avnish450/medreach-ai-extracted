@@ -11,32 +11,39 @@ export function VoiceSelector() {
     const updateVoices = () => {
       const availableVoices = window.speechSynthesis.getVoices();
       setVoices(availableVoices);
-      
-      // Set a default voice if none is selected
+
+      // Auto-select a default English voice on first load
       if (!voiceName && availableVoices.length > 0) {
-        const defaultVoice = availableVoices.find(v => v.lang.startsWith("en"));
-        if (defaultVoice) {
-          setVoiceName(defaultVoice.name);
-        } else {
-          setVoiceName(availableVoices[0].name);
-        }
+        const preferred =
+          availableVoices.find(v => v.lang.startsWith('en') && v.localService) ||
+          availableVoices.find(v => v.lang.startsWith('en')) ||
+          availableVoices[0];
+        if (preferred) setVoiceName(preferred.name);
       }
     };
 
     updateVoices();
     window.speechSynthesis.onvoiceschanged = updateVoices;
-
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, [voiceName, setVoiceName]);
 
+  // Always pass a defined string — empty string is fine for Radix Select
+  const selectedValue = voiceName ?? '';
+
+  if (voices.length === 0) {
+    return (
+      <div className="w-[180px] h-9 flex items-center justify-center rounded-md border border-slate-700 bg-slate-800/60 text-xs text-slate-400">
+        Loading voices…
+      </div>
+    );
+  }
+
   return (
-    <Select value={voiceName} onValueChange={(val) => val && setVoiceName(val)}>
+    <Select value={selectedValue} onValueChange={(val) => val && setVoiceName(val)}>
       <SelectTrigger className="w-[180px]">
         <SelectValue placeholder="Select Voice" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="max-h-60">
         {voices.map((v) => (
           <SelectItem key={v.name} value={v.name} className="text-xs">
             {v.name} ({v.lang})

@@ -1,11 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Bot, User, ArrowRight } from 'lucide-react';
+import { Bot, User, ArrowRight, Info } from 'lucide-react';
 import { ChatMessage, UrgencyLevel } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { UrgencyBadge } from '@/components/shared/urgency-badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { QuickReplyChips } from './QuickReplyChips';
+import { StreamingText } from './StreamingText';
 import { useRouter } from 'next/navigation';
 
 interface ChatBubbleProps {
@@ -32,13 +34,32 @@ export function ChatBubble({ message, onSendReply, isLast }: ChatBubbleProps) {
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <div className={`rounded-2xl p-4 text-sm leading-relaxed shadow-sm ${isUser
-            ? 'bg-teal-600 text-white rounded-tr-none'
-            : 'bg-muted/80 text-foreground rounded-tl-none border border-border/40'
+      <div className="flex flex-col gap-1 w-full">
+        <div className={`rounded-2xl p-4 text-sm leading-relaxed shadow-sm w-full ${isUser
+            ? 'bg-teal-500 text-white rounded-tr-sm'
+            : 'bg-slate-800/70 text-slate-100 rounded-tl-sm border border-slate-700'
           }`}>
           
-          <div className="whitespace-pre-wrap">{message.content}</div>
+          {!isUser && isLast ? (
+            <StreamingText text={message.content} />
+          ) : (
+            <p className="whitespace-pre-wrap">{message.content}</p>
+          )}
+
+          {/* Why-asking tooltip for AI questions */}
+          {!isUser && message.triageResponse?.question?.why_asking && (
+            <TooltipProvider delay={300}>
+              <Tooltip>
+                <TooltipTrigger className="mt-2 text-xs text-teal-400 hover:text-teal-300 flex items-center gap-1 transition-colors bg-transparent border-none p-0 cursor-pointer">
+                  <Info className="h-3 w-3" />
+                  Why am I asking this?
+                </TooltipTrigger>
+                <TooltipContent className="bg-slate-800 border-slate-700 text-slate-200 text-xs max-w-[250px]">
+                  {message.triageResponse.question.why_asking}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
 
           {/* Quick Reply Chips if AI asks a question */}
           {!isUser && isLast && message.triageResponse?.question?.options && (

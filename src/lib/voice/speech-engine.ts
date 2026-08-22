@@ -80,10 +80,12 @@ export class SpeechEngine {
         "no-speech": "I didn't hear anything. Please try again.",
         "audio-capture": "Microphone not available. Check permissions.",
         "not-allowed": "Microphone permission denied. Please enable it in browser settings.",
+        "service-not-allowed": "Speech Recognition is blocked by your browser or OS. Try Chrome or Edge.",
         "network": "Network error. Please check your connection.",
+        "aborted": "Recognition was cancelled.",
       };
       // Prevent rapid fire errors from triggering UI updates repeatedly
-      if (event.error !== "no-speech") {
+      if (event.error !== "no-speech" && event.error !== "aborted") {
         this.onError?.(errorMessages[event.error] || `Error: ${event.error}`, event.error);
         this.onStateChange?.("error");
       }
