@@ -37,9 +37,9 @@ export function Navbar() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 pt-4 md:pt-6 pointer-events-none">
+    <div className="fixed top-0 left-0 w-full z-50 grid place-items-center px-4 pt-4 md:pt-6 pointer-events-none">
       <header
-        className={`pointer-events-auto w-full max-w-5xl transition-all duration-300 rounded-full ${
+        className={`pointer-events-auto w-full max-w-7xl transition-all duration-300 rounded-full ${
           scrolled
             ? 'framer-nav py-2 px-3 shadow-2xl'
             : 'bg-background/70 dark:bg-black/40 backdrop-blur-md border border-border py-2.5 px-4 shadow-sm'

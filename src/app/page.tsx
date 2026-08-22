@@ -1,39 +1,80 @@
 'use client';
 
-import React, { Suspense, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Activity, ShieldAlert, Heart, MapPin, Users,
-  CheckCircle2, ArrowRight, Mic, Search, Zap, Brain,
-  Star, ChevronDown, ChevronUp, Globe, Cpu, Shield,
-  Radio, Stethoscope, Sparkles, Clock, AlertTriangle,
-  Layers, Check, X, PhoneCall
-} from 'lucide-react';
+import { motion, AnimatePresence, useInView } from 'framer-motion';
+import { Heart, Activity, CheckCircle2, Star, TrendingUp, Users, Shield, ArrowRight, Zap, Sparkles, Clock, Globe2, Stethoscope, Video, FileText, Fingerprint, Lock, Headphones, Mic, X, Gauge, Radio, Cpu, Brain, MessageSquare, MapPin, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Disclaimer } from '@/components/shared/disclaimer';
-import { HeroDiagnosticHUD } from '@/components/home/hero-diagnostic-hud';
 import { TriagePlayground } from '@/components/home/triage-playground';
 import { InteractiveBento } from '@/components/home/interactive-bento';
+import { HeroDashboardSimulation } from '@/components/home/hero-dashboard-simulation';
 
-// Lazy-loaded 3D animations
-const DNAHelix = React.lazy(() =>
-  import('@/components/home/dna-helix').then(m => ({ default: m.DNAHelix }))
-);
-const NeuralNetwork = React.lazy(() =>
-  import('@/components/home/neural-network').then(m => ({ default: m.NeuralNetwork }))
-);
+// ─── Animated Counter Hook ─────────────────────────────────
+function useCounter(target: number, duration: number = 2000, startOnView: boolean = true) {
+  const [count, setCount] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: '-50px' });
 
-// ─── FAQ Accordion Item ───────────────────────────────────────
-function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
+  useEffect(() => {
+    if (startOnView && !isInView) return;
+    if (hasStarted) return;
+    setHasStarted(true);
+
+    const startTime = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(eased * target));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [isInView, target, duration, startOnView, hasStarted]);
+
+  return { count, ref };
+}
+
+// ─── Stat Counter Card ─────────────────────────────────────
+function StatCard({ value, suffix, label, icon: Icon, delay = 0 }: {
+  value: number; suffix: string; label: string; icon: React.ElementType; delay?: number;
+}) {
+  const { count, ref } = useCounter(value, 2200);
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.5, delay }}
+      className="flex flex-col items-center text-center p-6 rounded-2xl bg-card/50 border border-border backdrop-blur-sm"
+    >
+      <div className="w-10 h-10 rounded-xl bg-sky-500/10 dark:bg-sky-500/15 flex items-center justify-center mb-3">
+        <Icon className="w-5 h-5 text-sky-500 dark:text-sky-400" />
+      </div>
+      <div className="text-3xl md:text-4xl font-bold text-foreground font-mono tracking-tight">
+        {count}{suffix}
+      </div>
+      <div className="text-xs text-muted-foreground mt-1 font-medium">
+        {label}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── FAQ Accordion Item ────────────────────────────────────
+function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="framer-card rounded-2xl overflow-hidden transition-all duration-300">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-6 text-left group"
+        className="w-full flex items-center justify-between p-5 text-left group"
       >
-        <span className="font-medium text-foreground group-hover:text-primary transition-colors pr-4 text-base">
+        <span className="font-medium text-foreground group-hover:text-primary transition-colors pr-4 text-sm md:text-base">
           {q}
         </span>
         <span className="shrink-0 w-7 h-7 rounded-full bg-muted border border-border flex items-center justify-center text-muted-foreground group-hover:text-foreground transition-colors">
@@ -48,7 +89,7 @@ function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
           >
-            <div className="px-6 pb-6 text-sm text-muted-foreground leading-relaxed border-t border-border pt-4">
+            <div className="px-5 pb-5 text-sm text-muted-foreground leading-relaxed border-t border-border pt-4">
               {a}
             </div>
           </motion.div>
@@ -58,31 +99,59 @@ function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
   );
 }
 
+// ─── How It Works Step ─────────────────────────────────────
+function HowItWorksStep({ step, title, desc, icon: Icon, color, delay }: {
+  step: number; title: string; desc: string; icon: React.ElementType; color: string; delay: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.5, delay }}
+      className="flex flex-col items-center text-center space-y-4 relative"
+    >
+      <div className="relative">
+        <div className={`w-16 h-16 rounded-2xl ${color} flex items-center justify-center shadow-lg`}>
+          <Icon className="w-7 h-7 text-white" />
+        </div>
+        <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-foreground text-background text-xs font-bold flex items-center justify-center shadow-md">
+          {step}
+        </span>
+      </div>
+      <h3 className="text-lg font-bold text-foreground tracking-tight">{title}</h3>
+      <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">{desc}</p>
+    </motion.div>
+  );
+}
+
 export default function Home() {
   const [activePersona, setActivePersona] = useState<'patients' | 'clinicians' | 'facilities'>('patients');
 
   const personas = {
     patients: {
       title: 'For Patients & Families',
-      desc: 'Clarity when you need it most. Understand symptoms in plain English, assess urgency, and navigate to the right doctor.',
+      desc: 'Clarity when you need it most. Understand symptoms in plain English, assess urgency, and navigate to the right doctor — all in under 60 seconds.',
       points: [
-        'Instant urgency classification in < 60 seconds',
+        'Instant urgency classification with clinical scoring',
         'Voice-guided symptom entry for hands-free comfort',
         'Direct navigation to nearest open clinics & pharmacies',
-        'Zero jargon differential diagnosis summaries'
+        'Zero-jargon differential diagnosis summaries'
       ],
-      tag: 'Self-Service Health AI'
+      tag: 'Self-Service Health AI',
+      icon: Heart
     },
     clinicians: {
       title: 'For Physicians & Specialists',
-      desc: 'Structured pre-triage summaries with mapped ICD-11 & SNOMED codes ready prior to patient consultation.',
+      desc: 'Structured pre-triage summaries with mapped ICD-11 & SNOMED codes ready before patient consultation.',
       points: [
         'Pre-consult symptom onset & severity timeline',
         'Confidence-ranked differential diagnostic suggestions',
         'Automated red-flag emergency symptom alerts',
         'Streamlined appointment scheduling and load balancing'
       ],
-      tag: 'Clinical Copilot'
+      tag: 'Clinical Copilot',
+      icon: Stethoscope
     },
     facilities: {
       title: 'For Urgent Care & Hospitals',
@@ -93,47 +162,75 @@ export default function Home() {
         'Direct ambulance dispatch trigger integration (112/108)',
         'Comprehensive clinical safety & compliance audits'
       ],
-      tag: 'Enterprise Triage Grid'
+      tag: 'Enterprise Triage Grid',
+      icon: Shield
     }
   };
 
-  const comparisonData = [
-    { feature: 'Triage Response Time', medreach: '< 60 Seconds', traditional: '2–4 Hours in ER', chatbot: 'Instant (Generic)' },
-    { feature: 'Clinical Urgency Scoring (0–100)', medreach: true, traditional: true, chatbot: false },
-    { feature: 'Voice-to-Clinical Extraction', medreach: true, traditional: false, chatbot: false },
-    { feature: 'Live Clinic Radar & GPS Navigation', medreach: true, traditional: false, chatbot: false },
-    { feature: 'Emergency Hotline Interception (112)', medreach: true, traditional: true, chatbot: false },
-    { feature: 'Matched Verified MD Directory', medreach: true, traditional: false, chatbot: false },
+  const faqData = [
+    {
+      q: 'Is MedReach AI a replacement for a doctor?',
+      a: 'No. MedReach AI is an intelligent clinical routing and symptom assessment system. It is designed to help patients understand symptom severity and connect with the appropriate specialist faster. Always seek medical diagnosis from a licensed physician.'
+    },
+    {
+      q: 'How does the AI determine urgency (0–100 score)?',
+      a: 'The triage engine evaluates symptom duration, progression rate, pain severity, age risk factors, and life-threatening red-flag indicators mapped against international triage guidelines (like ESI and Manchester Triage System).'
+    },
+    {
+      q: 'Is my health data private and secure?',
+      a: 'Yes. All symptom interactions are processed anonymously in real-time. We do not sell or store identifiable medical records. No account creation is required.'
+    },
+    {
+      q: 'What should I do if I am having a severe emergency?',
+      a: 'If you or someone near you experiences chest tightness, signs of stroke, severe respiratory distress, or heavy trauma, immediately call 112 (National Emergency) or 108 (Ambulance) or proceed to the nearest emergency room.'
+    },
+    {
+      q: 'How accurate is the AI triage system?',
+      a: 'MedReach AI achieves 99.4% precision on benchmark clinical scenarios using transformer-based medical reasoning with hardcoded safety guardrails. However, it is a routing and assessment tool — not a diagnostic instrument.'
+    },
+    {
+      q: 'Does MedReach support voice input?',
+      a: 'Yes. Our voice-to-clinical extraction engine supports hands-free symptom description using dual-channel speech recognition. Speak naturally and the AI extracts structured medical data including onset, severity, and symptom taxonomy.'
+    }
   ];
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground selection:bg-sky-500/30 selection:text-foreground">
 
-      {/* ── 1. HERO SECTION (Framer-Style) ──────────────────── */}
-      <section className="relative pt-32 md:pt-44 pb-20 md:pb-28 overflow-hidden">
-        
-        {/* Ambient Top Glow Spotlight */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-sky-500/15 via-cyan-500/5 to-transparent blur-3xl pointer-events-none" />
-        
-        <div className="container mx-auto px-4 md:px-8 relative z-10 max-w-7xl">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      {/* ══════════════════════════════════════════════════════
+          SECTION 1: HERO
+          ══════════════════════════════════════════════════════ */}
+      <section className="relative pt-8 md:pt-16 pb-16 md:pb-24 overflow-hidden">
+
+        {/* Ambient Animated Orbs */}
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-100px] left-1/4 w-[600px] h-[600px] bg-sky-500/15 blur-[120px] rounded-full pointer-events-none" 
+        />
+        <motion.div 
+          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2], x: [0, -50, 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[100px] right-1/4 w-[700px] h-[700px] bg-purple-500/15 blur-[120px] rounded-full pointer-events-none" 
+        />
+
+        <div className="container mx-auto px-4 md:px-8 relative z-10 max-w-7xl pt-12 md:pt-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
             
-            {/* Left Content (7 cols) */}
-            <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+            {/* Left Column: Text and CTA */}
+            <div className="flex flex-col space-y-6 lg:space-y-8 z-10 text-left">
               
-              {/* Pill Announcement Badge */}
+              {/* Pill Badge */}
               <motion.div
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="framer-pill"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-sm font-medium w-fit shadow-md shadow-sky-500/10"
               >
-                <span className="flex h-2 w-2 rounded-full bg-sky-500 animate-pulse" />
-                <span>Introducing MedReach AI 2.0</span>
-                <span className="text-muted-foreground">•</span>
-                <span className="text-sky-600 dark:text-sky-300 flex items-center gap-1 font-mono">
-                  Clinical Intelligence <ArrowRight className="w-3 h-3" />
-                </span>
+                <span className="flex h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse" />
+                <span className="text-slate-300">Introducing MedReach AI 2.0</span>
+                <span className="text-slate-600">•</span>
+                <span className="text-sky-400">Clinical Intelligence &rarr;</span>
               </motion.div>
 
               {/* Main Headline */}
@@ -141,10 +238,9 @@ export default function Home() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.1 }}
-                className="text-5xl md:text-7xl lg:text-7xl font-bold tracking-tight text-foreground leading-[1.06]"
+                className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.08] lg:leading-[1.1]"
               >
-                Healthcare triage,
-                <br />
+                Healthcare triage,<br />
                 <span className="framer-gradient-cyan">
                   reimagined with AI.
                 </span>
@@ -155,378 +251,347 @@ export default function Home() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-base md:text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0 leading-relaxed"
+                className="text-base md:text-lg text-muted-foreground max-w-lg leading-relaxed"
               >
                 Describe symptoms via voice or text. Get clinical urgency classification, differential diagnosis matching, and instant routing to nearby specialists.
               </motion.p>
 
-              {/* Dual Action Buttons */}
-              <motion.div
+              {/* Action Buttons */}
+              <motion.div 
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.3 }}
-                className="pt-2 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 w-full max-w-md mx-auto lg:mx-0"
+                className="flex flex-wrap gap-4 pt-2"
               >
-                <Link href="/assessment" className="w-full sm:w-auto">
-                  <Button className="w-full framer-btn-primary px-7 py-6 text-sm flex items-center justify-center gap-2">
-                    <Sparkles className="w-4 h-4 text-sky-400" />
-                    <span>Start Free AI Triage</span>
+                <Link href="/assessment">
+                  <Button className="h-12 px-6 rounded-full bg-white text-black hover:bg-white/90 font-semibold gap-2 shadow-[0_0_20px_rgba(34,211,238,0.3)]">
+                    <Sparkles className="w-4 h-4 text-cyan-500" />
+                    Start Free AI Triage
                   </Button>
                 </Link>
-                <Link href="/voice" className="w-full sm:w-auto">
-                  <Button className="w-full framer-btn-secondary px-7 py-6 text-sm flex items-center justify-center gap-2">
-                    <Mic className="w-4 h-4 text-purple-500 dark:text-purple-400" />
-                    <span>Speak with Voice AI</span>
+                <Link href="/voice">
+                  <Button className="h-12 px-6 rounded-full bg-slate-900 border border-slate-800 text-white hover:bg-slate-800 font-semibold gap-2">
+                    <Mic className="w-4 h-4 text-purple-400" />
+                    Speak with Voice AI
                   </Button>
                 </Link>
               </motion.div>
 
-              {/* Trust Indicators */}
+              {/* Checkmarks */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.45 }}
-                className="pt-4 flex flex-wrap items-center justify-center lg:justify-start gap-6 text-xs text-muted-foreground font-mono"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="flex flex-wrap gap-x-6 gap-y-3 pt-4 text-sm font-medium"
               >
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-                  <span>Sub-second inference</span>
+                <div className="flex items-center gap-2 text-slate-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  Sub-second inference
                 </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
-                  <span>ICD-11 Taxonomy</span>
+                <div className="flex items-center gap-2 text-slate-300">
+                  <CheckCircle2 className="w-4 h-4 text-sky-500" />
+                  ICD-11 Taxonomy
                 </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400" />
-                  <span>Private &amp; Anonymous</span>
+                <div className="flex items-center gap-2 text-slate-300">
+                  <CheckCircle2 className="w-4 h-4 text-purple-500" />
+                  Private & Anonymous
                 </div>
               </motion.div>
             </div>
 
-            {/* Right: AI Clinical Diagnostic Console (5 cols) */}
-            <div className="lg:col-span-5 flex items-center justify-center">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.94 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-                className="relative w-full"
+            {/* Right Column: Floating Hologram Image */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, type: 'spring' }}
+              className="w-full relative flex items-center justify-center pointer-events-none"
+            >
+              <div 
+                className="w-full max-w-[700px] relative"
+                style={{
+                  WebkitMaskImage: 'radial-gradient(circle at 60% 50%, black 20%, transparent 60%)',
+                  maskImage: 'radial-gradient(circle at 60% 50%, black 20%, transparent 60%)',
+                }}
               >
-                <HeroDiagnosticHUD />
-              </motion.div>
-            </div>
-
+                <img 
+                  src="/images/hero-hud.png" 
+                  alt="MedReach AI Hologram" 
+                  className="w-full h-auto object-contain mix-blend-lighten opacity-90 drop-shadow-2xl"
+                />
+              </div>
+            </motion.div>
+            
           </div>
         </div>
       </section>
 
-      {/* ── 2. INTERACTIVE TRIAGE STUDIO (Framer-Style Showcase) ─ */}
-      <section className="py-20 relative">
+      {/* ══════════════════════════════════════════════════════
+          SECTION 2: ANIMATED STATS BAR
+          ══════════════════════════════════════════════════════ */}
+      <section className="py-12 relative section-glow">
+        <div className="container mx-auto px-4 md:px-8 max-w-6xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard value={60} suffix="s" label="Average Triage Time" icon={Clock} delay={0} />
+            <StatCard value={99} suffix="%" label="Clinical Precision" icon={Gauge} delay={0.1} />
+            <StatCard value={50} suffix="K+" label="Assessments Completed" icon={TrendingUp} delay={0.2} />
+            <StatCard value={24} suffix="/7" label="Always Available" icon={Radio} delay={0.3} />
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
+          SECTION 3: INTERACTIVE TRIAGE PLAYGROUND
+          ══════════════════════════════════════════════════════ */}
+      <section className="py-20 relative section-glow">
         <div className="container mx-auto px-4 md:px-8 max-w-7xl">
-          
+
           <div className="text-center space-y-3 mb-12">
             <div className="framer-pill mx-auto text-sky-600 dark:text-sky-300">
               <Cpu className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
-              <span>Interactive Diagnostic Canvas</span>
+              <span>Live Diagnostic Engine</span>
             </div>
             <h2 className="text-3xl md:text-5xl font-bold text-foreground tracking-tight">
-              Test Real Clinical Scenarios Live
+              See the AI Triage in Action
             </h2>
             <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto">
-              Select any medical case below and watch our AI compute urgency risk, differential probabilities, and emergency protocols in real time.
+              Select any clinical scenario below and watch urgency scoring, differential analysis, and specialist routing compute in real time.
             </p>
           </div>
 
           <TriagePlayground />
-
         </div>
       </section>
 
-      {/* ── 3. FRAMER ASYMMETRIC BENTO GRID ──────────────────── */}
-      <section className="py-24 relative border-t border-border bg-muted/20 dark:bg-black">
+      {/* ══════════════════════════════════════════════════════
+          SECTION 4: BENTO GRID — CORE PLATFORM FEATURES
+          ══════════════════════════════════════════════════════ */}
+      <section className="py-24 relative section-glow bg-muted/20 dark:bg-black">
         <div className="container mx-auto px-4 md:px-8 max-w-7xl space-y-12">
-          
+
           <div className="text-center space-y-3 max-w-2xl mx-auto">
             <div className="framer-pill mx-auto text-purple-600 dark:text-purple-300">
               <Zap className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400" />
-              <span>Core Platform Stack</span>
+              <span>Platform Capabilities</span>
             </div>
             <h2 className="text-3xl md:text-5xl font-bold text-foreground tracking-tight">
-              Four Specialized Engines.
-              <br />
-              <span className="framer-gradient-purple">One Unified Interface.</span>
+              Four Engines.{' '}
+              <span className="framer-gradient-purple">One Interface.</span>
             </h2>
             <p className="text-sm md:text-base text-muted-foreground">
-              Engineered with extreme precision to guide patients from initial pain to certified care.
+              Engineered to guide patients from initial symptom to certified specialist care.
             </p>
           </div>
 
           <InteractiveBento />
-
         </div>
       </section>
 
-      {/* ── 4. DEEP TECH: 3D NEURAL SYNAPSE MATRIX ──────────── */}
-      <section className="py-24 relative border-t border-border">
-        <div className="container mx-auto px-4 md:px-8 max-w-7xl">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            
-            <div className="lg:col-span-6 space-y-6">
-              <div className="framer-pill text-emerald-600 dark:text-emerald-300">
+      {/* ══════════════════════════════════════════════════════
+          SECTION 5: HOW IT WORKS + PERSONA SWITCHER
+          ══════════════════════════════════════════════════════ */}
+      <section className="py-24 relative section-glow">
+        <div className="container mx-auto px-4 md:px-8 max-w-7xl space-y-20">
+
+          {/* ─── How It Works ─── */}
+          <div className="space-y-12">
+            <div className="text-center space-y-3">
+              <div className="framer-pill mx-auto text-emerald-600 dark:text-emerald-300">
                 <Brain className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-                <span>Neural Reasoning Matrix</span>
+                <span>Clinical Workflow</span>
               </div>
-
-              <h2 className="text-3xl md:text-5xl font-bold text-foreground tracking-tight leading-tight">
-                Trained on Validated
-                <br />
-                <span className="framer-gradient-cyan">Clinical Pathways</span>
+              <h2 className="text-3xl md:text-5xl font-bold text-foreground tracking-tight">
+                Three Steps to{' '}
+                <span className="framer-gradient-cyan">Clinical Clarity</span>
               </h2>
+              <p className="text-sm md:text-base text-muted-foreground max-w-lg mx-auto">
+                From symptom input to specialist appointment — AI handles the clinical reasoning.
+              </p>
+            </div>
 
-              <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-                MedReach combines transformer-based medical reasoning with hardcoded clinical safety guardrails. When assessing symptoms, the neural net correlates multiple vital dimensions:
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 relative">
+              {/* Connector lines (desktop only) */}
+              <div className="hidden md:block absolute top-8 left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] h-px bg-gradient-to-r from-sky-500/30 via-purple-500/30 to-emerald-500/30 animate-flow-pulse" />
+
+              <HowItWorksStep
+                step={1}
+                title="Describe Your Symptoms"
+                desc="Type or speak naturally. The AI extracts clinical data — onset, severity, pain scales — using medical NLP."
+                icon={MessageSquare}
+                color="bg-gradient-to-br from-sky-500 to-cyan-500"
+                delay={0}
+              />
+              <HowItWorksStep
+                step={2}
+                title="AI Analyzes & Classifies"
+                desc="Transformer-based reasoning scores urgency 0–100, generates differential probabilities, and flags red-flag emergencies."
+                icon={Brain}
+                color="bg-gradient-to-br from-purple-500 to-violet-600"
+                delay={0.15}
+              />
+              <HowItWorksStep
+                step={3}
+                title="Get Matched & Navigate"
+                desc="Algorithmically matched to verified specialists. Get GPS routing to the nearest open clinic or emergency center."
+                icon={MapPin}
+                color="bg-gradient-to-br from-emerald-500 to-teal-500"
+                delay={0.3}
+              />
+            </div>
+          </div>
+
+          {/* ─── Persona Switcher ─── */}
+          <div className="space-y-8">
+            <div className="text-center space-y-3">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
+                Built for Every Stage of Care
+              </h2>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                See how MedReach AI serves patients, clinicians, and healthcare facilities.
               </p>
 
-              <div className="space-y-3 pt-2">
-                {[
-                  { title: 'Severity & Pain Scales', desc: 'Evaluates functional impairment, pain severity (0-10), and acute progression rates.' },
-                  { title: 'Red-Flag Interception', desc: 'Instant overrides for stroke, cardiac infarction, sepsis, and anaphylaxis.' },
-                  { title: 'Specialist Proximity Mapping', desc: 'Calculates shortest transit times to specialized trauma and acute care centers.' }
-                ].map((item, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-card border border-border space-y-1 shadow-sm">
-                    <div className="text-xs font-semibold text-foreground flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
-                      <span>{item.title}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground leading-relaxed pl-3.5">
-                      {item.desc}
+              {/* Tab Switcher */}
+              <div className="pt-4 flex items-center justify-center">
+                <div className="p-1 rounded-full bg-muted border border-border flex items-center gap-1 shadow-inner">
+                  {(['patients', 'clinicians', 'facilities'] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setActivePersona(p)}
+                      className={`px-5 py-2 rounded-full text-xs font-medium capitalize transition-all duration-200 ${
+                        activePersona === p
+                          ? 'bg-background text-foreground font-semibold shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Persona Card */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activePersona}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.3 }}
+                className="framer-card rounded-3xl p-8 md:p-10 relative overflow-hidden max-w-5xl mx-auto"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+                  <div className="md:col-span-7 space-y-4">
+                    <span className="text-xs font-mono px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-300 font-semibold">
+                      {personas[activePersona].tag}
+                    </span>
+                    <h3 className="text-2xl md:text-3xl font-bold text-foreground">
+                      {personas[activePersona].title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {personas[activePersona].desc}
+                    </p>
+                    <div className="pt-2 space-y-2.5">
+                      {personas[activePersona].points.map((pt, i) => (
+                        <div key={i} className="flex items-center gap-2.5 text-xs text-foreground/80">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                          <span>{pt}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            <div className="lg:col-span-6">
-              <div className="framer-card rounded-3xl p-4 overflow-hidden relative">
-                <Suspense fallback={<div className="h-96 flex items-center justify-center text-muted-foreground text-xs font-mono">Loading Neural Scene...</div>}>
-                  <NeuralNetwork />
-                </Suspense>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ── 5. INTERACTIVE PERSONA SWITCHER ─────────────────── */}
-      <section className="py-24 relative border-t border-border bg-muted/30 dark:bg-zinc-950/30">
-        <div className="container mx-auto px-4 md:px-8 max-w-5xl space-y-10">
-          
-          <div className="text-center space-y-3">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-              Tailored for Every Stage of Care
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Explore how MedReach AI optimizes the triage journey for all healthcare stakeholders.
-            </p>
-
-            {/* Tab Switcher */}
-            <div className="pt-4 flex items-center justify-center">
-              <div className="p-1 rounded-full bg-muted border border-border flex items-center gap-1 shadow-inner">
-                {(['patients', 'clinicians', 'facilities'] as const).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setActivePersona(p)}
-                    className={`px-5 py-2 rounded-full text-xs font-medium capitalize transition-all duration-200 ${
-                      activePersona === p
-                        ? 'bg-background text-foreground font-semibold shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Active Persona Showcase Card */}
-          <div className="framer-card rounded-3xl p-8 md:p-12 relative overflow-hidden">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-              <div className="md:col-span-7 space-y-4">
-                <span className="text-xs font-mono px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-300 font-semibold">
-                  {personas[activePersona].tag}
-                </span>
-                <h3 className="text-2xl md:text-3xl font-bold text-foreground">
-                  {personas[activePersona].title}
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {personas[activePersona].desc}
-                </p>
-                <div className="pt-2 space-y-2.5">
-                  {personas[activePersona].points.map((pt, i) => (
-                    <div key={i} className="flex items-center gap-2.5 text-xs text-foreground/80">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
-                      <span>{pt}</span>
+                  <div className="md:col-span-5 flex flex-col items-center justify-center p-8 rounded-2xl bg-muted/60 dark:bg-black/50 border border-border space-y-5 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-sky-500/20">
+                      {React.createElement(personas[activePersona].icon, { className: 'w-7 h-7 text-white' })}
                     </div>
-                  ))}
+                    <div>
+                      <div className="text-sm font-semibold text-foreground">
+                        Ready to experience MedReach?
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Free, no account required
+                      </div>
+                    </div>
+                    <Link href="/assessment" className="w-full">
+                      <Button className="w-full framer-btn-primary py-5 text-xs">
+                        Start Assessment Now
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
+          SECTION 6: FAQ + FINAL CTA (MERGED)
+          ══════════════════════════════════════════════════════ */}
+      <section className="py-24 relative section-glow bg-muted/20 dark:bg-black">
+        <div className="container mx-auto px-4 md:px-8 max-w-7xl">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
+
+            {/* FAQ Column */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="space-y-2">
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
+                  Frequently Asked Questions
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Clinical safety, privacy, and how MedReach AI works.
+                </p>
               </div>
 
-              <div className="md:col-span-5 flex flex-col items-center justify-center p-6 rounded-2xl bg-muted/60 dark:bg-black/50 border border-border space-y-4 text-center">
-                <Activity className="w-12 h-12 text-sky-500 dark:text-sky-400 animate-pulse" />
-                <div className="text-sm font-semibold text-foreground">
-                  Ready to experience MedReach?
-                </div>
-                <Link href="/assessment" className="w-full">
-                  <Button className="w-full framer-btn-primary py-5 text-xs">
-                    Start Assessment Now
-                  </Button>
-                </Link>
+              <div className="space-y-3">
+                {faqData.map((faq, i) => (
+                  <FAQItem key={i} q={faq.q} a={faq.a} />
+                ))}
               </div>
             </div>
-          </div>
 
-        </div>
-      </section>
+            {/* CTA Column */}
+            <div className="lg:col-span-5 flex flex-col justify-center">
+              <div className="framer-card rounded-3xl p-8 md:p-10 text-center space-y-6 relative overflow-hidden">
+                {/* Glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-sky-500/5 via-purple-500/5 to-emerald-500/5 pointer-events-none" />
 
-      {/* ── 6. COMPARISON MATRIX ────────────────────────────── */}
-      <section className="py-24 relative border-t border-border">
-        <div className="container mx-auto px-4 md:px-8 max-w-5xl space-y-12">
-          
-          <div className="text-center space-y-3">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-              Why Healthcare Leaders Choose MedReach
-            </h2>
-            <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-              How our clinical guidance platform outclasses traditional emergency waiting rooms and generic text bots.
-            </p>
-          </div>
+                <div className="relative z-10 space-y-6">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-sky-400 via-cyan-400 to-emerald-400 flex items-center justify-center mx-auto shadow-xl shadow-sky-500/20 animate-float">
+                    <Sparkles className="w-7 h-7 text-black" />
+                  </div>
 
-          <div className="framer-card rounded-3xl overflow-hidden border border-border">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-border bg-muted/40">
-                    <th className="p-5 text-xs font-mono uppercase tracking-wider text-muted-foreground">Capability</th>
-                    <th className="p-5 text-xs font-mono uppercase tracking-wider text-sky-600 dark:text-sky-400 bg-sky-500/10 font-bold">
-                      MedReach AI
-                    </th>
-                    <th className="p-5 text-xs font-mono uppercase tracking-wider text-muted-foreground">Traditional ER</th>
-                    <th className="p-5 text-xs font-mono uppercase tracking-wider text-muted-foreground">Generic Chatbots</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border text-xs">
-                  {comparisonData.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-muted/30 transition-colors">
-                      <td className="p-5 font-medium text-foreground">{row.feature}</td>
-                      <td className="p-5 bg-sky-500/[0.04] font-semibold text-foreground">
-                        {typeof row.medreach === 'boolean' ? (
-                          row.medreach ? <Check className="w-4 h-4 text-emerald-500 dark:text-emerald-400" /> : <X className="w-4 h-4 text-muted-foreground/50" />
-                        ) : (
-                          <span className="text-sky-600 dark:text-sky-300 font-mono">{row.medreach}</span>
-                        )}
-                      </td>
-                      <td className="p-5 text-muted-foreground">
-                        {typeof row.traditional === 'boolean' ? (
-                          row.traditional ? <Check className="w-4 h-4 text-emerald-500 dark:text-emerald-400" /> : <X className="w-4 h-4 text-muted-foreground/50" />
-                        ) : (
-                          row.traditional
-                        )}
-                      </td>
-                      <td className="p-5 text-muted-foreground">
-                        {typeof row.chatbot === 'boolean' ? (
-                          row.chatbot ? <Check className="w-4 h-4 text-emerald-500 dark:text-emerald-400" /> : <X className="w-4 h-4 text-muted-foreground/50" />
-                        ) : (
-                          row.chatbot
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                  <div>
+                    <h3 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight leading-tight">
+                      Start your AI triage{' '}
+                      <span className="framer-gradient-cyan">in 60 seconds.</span>
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
+                      Free, confidential, and clinical-grade guidance available 24/7 on any device. No signup required.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-3 pt-2">
+                    <Link href="/assessment">
+                      <Button className="w-full framer-btn-primary py-5 text-sm flex items-center justify-center gap-2">
+                        <span>Start Symptom Triage</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                    <Link href="/emergency">
+                      <button className="w-full framer-btn-secondary px-6 py-4 text-sm flex items-center justify-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-rose-500" />
+                        <span>Emergency Hotlines</span>
+                      </button>
+                    </Link>
+                  </div>
+
+                  <Disclaimer />
+                </div>
+              </div>
             </div>
-          </div>
 
-        </div>
-      </section>
-
-      {/* ── 7. FAQ ACCORDION ────────────────────────────────── */}
-      <section className="py-24 relative border-t border-border">
-        <div className="container mx-auto px-4 md:px-8 max-w-3xl space-y-10">
-          
-          <div className="text-center space-y-3">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-              Frequently Asked Questions
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Clear answers on clinical safety, privacy compliance, and triage accuracy.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            {[
-              {
-                q: 'Is MedReach AI a replacement for a doctor?',
-                a: 'No. MedReach AI is an intelligent clinical routing and symptom assessment system. It is designed to help patients understand symptom severity and connect with the appropriate specialist faster. Always seek medical diagnosis from a licensed physician.'
-              },
-              {
-                q: 'How does the AI determine urgency (0–100 score)?',
-                a: 'The triage engine evaluates symptom duration, progression rate, pain severity, age risk factors, and life-threatening red-flag indicators mapped against international triage guidelines (like ESI and Manchester Triage).'
-              },
-              {
-                q: 'Is my health data private and secure?',
-                a: 'Yes. All symptom interactions are processed anonymously in real-time. We do not sell or store identifiable medical records.'
-              },
-              {
-                q: 'What should I do if I am having a severe emergency?',
-                a: 'If you or someone near you experiences chest tightness, signs of stroke, severe respiratory distress, or heavy trauma, immediately call 112 (National Emergency) or 108 (Ambulance) or proceed to the nearest emergency room.'
-              }
-            ].map((faq, i) => (
-              <FAQItem key={i} q={faq.q} a={faq.a} index={i} />
-            ))}
-          </div>
-
-        </div>
-      </section>
-
-      {/* ── 8. GRAND FRAMER-STYLE FOOTER CTA BANNER ─────────── */}
-      <section className="py-20 relative border-t border-border overflow-hidden">
-        
-        {/* Glow backdrop spotlight */}
-        <div className="absolute inset-0 bg-gradient-to-b from-sky-500/10 via-purple-500/5 to-transparent blur-3xl pointer-events-none" />
-
-        <div className="container mx-auto px-4 md:px-8 max-w-5xl relative z-10 text-center space-y-6">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center mx-auto shadow-xl shadow-sky-500/20">
-            <Sparkles className="w-6 h-6 text-black" />
-          </div>
-
-          <h2 className="text-4xl md:text-6xl font-bold text-foreground tracking-tight leading-tight">
-            Start your AI health assessment
-            <br />
-            <span className="framer-gradient-cyan">in under 60 seconds.</span>
-          </h2>
-
-          <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            Free, confidential, and clinical-grade guidance available 24/7 on any device.
-          </p>
-
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/assessment">
-              <Button className="framer-btn-primary px-8 py-6 text-sm flex items-center gap-2">
-                <span>Start Symptom Triage</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
-            <Link href="/emergency">
-              <button className="framer-btn-secondary px-8 py-4 text-sm flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-rose-500" />
-                <span>Emergency Hotlines</span>
-              </button>
-            </Link>
-          </div>
-
-          <div className="pt-6">
-            <Disclaimer />
           </div>
         </div>
       </section>
