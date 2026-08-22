@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Calendar, Star, DollarSign, Award, Clock, ArrowRight, ShieldAlert, Sparkles, Filter, X } from 'lucide-react';
@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { Doctor } from '@/types';
 
-export default function DoctorDirectoryPage() {
+function DoctorDirectoryContent() {
   const searchParams = useSearchParams();
   const initialSpecialty = searchParams.get('specialty') || 'All';
 
@@ -364,5 +364,13 @@ export default function DoctorDirectoryPage() {
       </Dialog>
 
     </div>
+  );
+}
+
+export default function DoctorDirectoryPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <DoctorDirectoryContent />
+    </Suspense>
   );
 }

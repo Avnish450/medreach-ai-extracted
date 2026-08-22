@@ -39,7 +39,7 @@ function useCounter(target: number, duration: number = 2000, startOnView: boolea
 
 // ─── Stat Counter Card ─────────────────────────────────────
 function StatCard({ value, suffix, label, icon: Icon, delay = 0 }: {
-  value: number; suffix: string; label: string; icon: React.ElementType; delay?: number;
+  value: number; suffix: string; label: string; icon: React.ElementType<{ className?: string }>; delay?: number;
 }) {
   const { count, ref } = useCounter(value, 2200);
 
@@ -101,7 +101,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 
 // ─── How It Works Step ─────────────────────────────────────
 function HowItWorksStep({ step, title, desc, icon: Icon, color, delay }: {
-  step: number; title: string; desc: string; icon: React.ElementType; color: string; delay: number;
+  step: number; title: string; desc: string; icon: React.ElementType<{ className?: string }>; color: string; delay: number;
 }) {
   return (
     <motion.div
@@ -301,22 +301,22 @@ export default function Home() {
 
             {/* Right Column: Floating Hologram Image */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, type: 'spring' }}
-              className="w-full relative flex items-center justify-center pointer-events-none"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 1, type: 'spring' }}
+              className="w-full relative flex items-center justify-center lg:justify-end pointer-events-none"
             >
               <div 
-                className="w-full max-w-[700px] relative"
+                className="w-full max-w-[800px] relative lg:-mr-12 lg:-mt-16"
                 style={{
-                  WebkitMaskImage: 'radial-gradient(circle at 60% 50%, black 20%, transparent 60%)',
-                  maskImage: 'radial-gradient(circle at 60% 50%, black 20%, transparent 60%)',
+                  WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 30%, black 100%)',
+                  maskImage: 'linear-gradient(to right, transparent 0%, black 30%, black 100%)',
                 }}
               >
                 <img 
                   src="/images/hero-hud.png" 
                   alt="MedReach AI Hologram" 
-                  className="w-full h-auto object-contain mix-blend-lighten opacity-90 drop-shadow-2xl"
+                  className="w-full h-auto object-contain mix-blend-lighten opacity-95 drop-shadow-2xl"
                 />
               </div>
             </motion.div>

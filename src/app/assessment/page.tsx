@@ -130,7 +130,7 @@ export default function AssessmentPage() {
         {
           id: `err-${Date.now()}`,
           role: 'assistant',
-          content: `Error: ${err.message || 'Something went wrong. Please try again.'}`,
+          content: `Error: ${message}`,
           timestamp: new Date()
         }
       ]);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { GoogleMap, useLoadScript, Marker, InfoWindow } from '@react-google-maps/api';
 import { MapPin, Phone, Star, Clock, Filter, Compass, Search, ExternalLink } from 'lucide-react';
@@ -12,13 +12,14 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useGeolocation } from '@/hooks/use-geolocation';
 import { Clinic } from '@/types';
+type Library = "places" | "drawing" | "geometry" | "visualization";
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { motion } from 'framer-motion';
 
-const libraries = ['places'] as string[];
+const libraries: Library[] = ['places'];
 
 
-export default function ClinicMapPage() {
+function ClinicMapContent() {
   const searchParams = useSearchParams();
   const initialSpecialty = searchParams.get('specialty') || 'All';
 
@@ -360,5 +361,13 @@ export default function ClinicMapPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ClinicMapPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <ClinicMapContent />
+    </Suspense>
   );
 }
