@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AIOrb } from "@/components/ui/voice/ai-orb";
+import SiriOrb from "@/components/ui/smoothui/siri-orb";
+import { type AIState } from "@/components/ui/smoothui/ai-core";
 import { ConversationHistory } from "@/components/ui/voice/conversation-history";
 import { VoiceControls } from "@/components/ui/voice/voice-controls";
 import { LanguageSelector } from "@/components/ui/voice/language-selector";
@@ -51,7 +52,7 @@ export default function VoiceAssistPage() {
 
     engineRef.current = new SpeechEngine({
       language,
-      continuous: false,
+      continuous: true,
       interimResults: true,
       voiceName,
       speechRate,
@@ -253,7 +254,17 @@ export default function VoiceAssistPage() {
             </div>
 
             {/* THE ORB */}
-            <AIOrb state={voiceState} audioLevel={audioLevel} />
+            <div className="relative w-48 h-48 md:w-64 md:h-64 my-8 flex items-center justify-center">
+              <SiriOrb
+                state={
+                  voiceState === "processing" ? "thinking" :
+                  voiceState === "speaking" ? "streaming" :
+                  voiceState as AIState
+                }
+                amplitude={audioLevel}
+                size="100%"
+              />
+            </div>
 
             {/* Live Transcript */}
             <div className="min-h-[80px] w-full flex flex-col justify-end items-center gap-2">

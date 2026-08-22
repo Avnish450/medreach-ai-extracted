@@ -205,7 +205,12 @@ export class SpeechEngine {
         };
     
         utterance.onend = () => {
-          this.onStateChange?.("idle");
+          if (this.config.continuous && !this.isForceStopped) {
+            this.onStateChange?.("listening");
+            try { this.recognition?.start(); } catch(e) {}
+          } else {
+            this.onStateChange?.("idle");
+          }
           onEnd?.();
         };
     
