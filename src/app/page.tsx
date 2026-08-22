@@ -301,22 +301,22 @@ export default function Home() {
 
             {/* Right Column: Floating Hologram Image */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, type: 'spring' }}
-              className="w-full relative flex items-center justify-center pointer-events-none"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 1, type: 'spring' }}
+              className="w-full relative flex items-center justify-center lg:justify-end pointer-events-none"
             >
               <div 
-                className="w-full max-w-[700px] relative"
+                className="w-full max-w-[800px] relative lg:-mr-20 lg:-mt-12"
                 style={{
-                  WebkitMaskImage: 'radial-gradient(circle at 60% 50%, black 20%, transparent 60%)',
-                  maskImage: 'radial-gradient(circle at 60% 50%, black 20%, transparent 60%)',
+                  WebkitMaskImage: 'radial-gradient(ellipse at 55% 50%, black 35%, transparent 75%)',
+                  maskImage: 'radial-gradient(ellipse at 55% 50%, black 35%, transparent 75%)',
                 }}
               >
                 <img 
                   src="/images/hero-hud.png" 
                   alt="MedReach AI Hologram" 
-                  className="w-full h-auto object-contain mix-blend-lighten opacity-90 drop-shadow-2xl"
+                  className="w-full h-auto object-contain mix-blend-lighten opacity-95 drop-shadow-2xl scale-110 origin-right"
                 />
               </div>
             </motion.div>
