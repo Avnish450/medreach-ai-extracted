@@ -1,9 +1,17 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Activity, ShieldAlert, ArrowUpRight } from 'lucide-react';
 
 export function Footer() {
+  const pathname = usePathname();
   const currentYear = new Date().getFullYear();
+
+  if (pathname === '/map' || pathname === '/voice') {
+    return null;
+  }
 
   const links = {
     product: [
