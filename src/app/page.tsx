@@ -39,7 +39,7 @@ function useCounter(target: number, duration: number = 2000, startOnView: boolea
 
 // ─── Stat Counter Card ─────────────────────────────────────
 function StatCard({ value, suffix, label, icon: Icon, delay = 0 }: {
-  value: number; suffix: string; label: string; icon: React.ElementType; delay?: number;
+  value: number; suffix: string; label: string; icon: React.ElementType<{ className?: string }>; delay?: number;
 }) {
   const { count, ref } = useCounter(value, 2200);
 
@@ -307,16 +307,16 @@ export default function Home() {
               className="w-full relative flex items-center justify-center lg:justify-end pointer-events-none"
             >
               <div 
-                className="w-full max-w-[800px] relative lg:-mr-20 lg:-mt-12"
+                className="w-full max-w-[800px] relative lg:-mr-12 lg:-mt-16"
                 style={{
-                  WebkitMaskImage: 'radial-gradient(ellipse at 55% 50%, black 35%, transparent 75%)',
-                  maskImage: 'radial-gradient(ellipse at 55% 50%, black 35%, transparent 75%)',
+                  WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 30%, black 100%)',
+                  maskImage: 'linear-gradient(to right, transparent 0%, black 30%, black 100%)',
                 }}
               >
                 <img 
                   src="/images/hero-hud.png" 
                   alt="MedReach AI Hologram" 
-                  className="w-full h-auto object-contain mix-blend-lighten opacity-95 drop-shadow-2xl scale-110 origin-right"
+                  className="w-full h-auto object-contain mix-blend-lighten opacity-95 drop-shadow-2xl"
                 />
               </div>
             </motion.div>

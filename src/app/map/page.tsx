@@ -12,10 +12,11 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useGeolocation } from '@/hooks/use-geolocation';
 import { Clinic } from '@/types';
+type Library = "places" | "drawing" | "geometry" | "visualization";
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { motion } from 'framer-motion';
 
-const libraries = ['places'] as string[];
+const libraries: Library[] = ['places'];
 
 
 export default function ClinicMapPage() {
