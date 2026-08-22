@@ -54,12 +54,9 @@ export default function AssessmentPage() {
 
   // Scroll to bottom of chat
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading, triageProgress]);
-
-  // Scroll to bottom of chat
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > 0 || isLoading) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, isLoading, triageProgress]);
 
   const handleToggleSymptom = (symptomName: string) => {

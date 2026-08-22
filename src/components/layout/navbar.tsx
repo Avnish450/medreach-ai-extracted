@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { 
   Activity, Sun, Moon, Menu, ShieldAlert, 
-  X, ArrowRight, Stethoscope, MapPin, Mic, Settings
+  X, ArrowRight, Stethoscope, MapPin, Mic, Settings, Heart
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -33,6 +33,7 @@ export function Navbar() {
     { name: 'Rescue Transport', href: '/transport', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
     { name: 'Clinic Radar', href: '/map', icon: <MapPin className="w-3.5 h-3.5" /> },
     { name: 'Doctors', href: '/doctors', icon: <Stethoscope className="w-3.5 h-3.5" /> },
+    { name: 'Volunteers', href: '/volunteers', icon: <Heart className="w-3.5 h-3.5" /> },
   ];
 
   const isActive = (path: string) => pathname === path;
