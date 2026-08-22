@@ -117,6 +117,7 @@ function DoctorDirectoryContent() {
   const [availableOnly, setAvailableOnly] = useState(false);
   const [emergencyOnly, setEmergencyOnly] = useState(false);
   const [maxFee, setMaxFee] = useState<number[]>([2500]);
+  const [minFee, setMinFee] = useState<number[]>([0]);
   const [minExperience, setMinExperience] = useState<number[]>([0]);
   const [citySearchQuery, setCitySearchQuery] = useState('');
   const [showCityDropdown, setShowCityDropdown] = useState(false);
@@ -156,6 +157,7 @@ function DoctorDirectoryContent() {
         availableOnly: availableOnly.toString(),
         emergencyOnly: emergencyOnly.toString(),
         maxFee: maxFee[0].toString(),
+        minFee: minFee[0].toString(),
         minExperience: minExperience[0].toString(),
       });
       const res = await fetch(`/api/doctors?${params.toString()}`);
@@ -171,7 +173,7 @@ function DoctorDirectoryContent() {
   useEffect(() => {
     queueMicrotask(() => { void fetchDoctors(); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [specialty, city, searchQuery, availableOnly, emergencyOnly, maxFee, minExperience]);
+  }, [specialty, city, searchQuery, availableOnly, emergencyOnly, maxFee, minFee, minExperience]);
 
   /* ---- appointment handlers ---- */
   const handleBookAppointment = (doctor: Doctor) => {
@@ -222,7 +224,7 @@ function DoctorDirectoryContent() {
     city !== 'All India',
     availableOnly,
     emergencyOnly,
-    maxFee[0] < 2500,
+    maxFee[0] < 2500 || minFee[0] > 0,
     minExperience[0] > 0,
     !!searchQuery,
   ].filter(Boolean).length;
@@ -399,17 +401,35 @@ function DoctorDirectoryContent() {
               {/* Fee range */}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
-                  <span>Max Fee</span>
-                  <span>₹{maxFee[0]}</span>
+                  <span>Fee Range</span>
+                  <span className="font-mono">{minFee[0] === 0 ? 'FREE' : `₹${minFee[0]}`} – ₹{maxFee[0]}</span>
                 </div>
-                <Slider
-                  value={maxFee}
-                  onValueChange={val => setMaxFee(Array.isArray(val) ? val : [val])}
-                  min={400}
-                  max={2500}
-                  step={100}
-                  className="py-1"
-                />
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>Min</span>
+                    <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{minFee[0] === 0 ? '₹0 (Free)' : `₹${minFee[0]}`}</span>
+                  </div>
+                  <Slider
+                    value={minFee}
+                    onValueChange={val => setMinFee(Array.isArray(val) ? val : [val])}
+                    min={0}
+                    max={2500}
+                    step={50}
+                    className="py-1"
+                  />
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>Max</span>
+                    <span className="font-mono font-bold">₹{maxFee[0]}</span>
+                  </div>
+                  <Slider
+                    value={maxFee}
+                    onValueChange={val => setMaxFee(Array.isArray(val) ? val : [val])}
+                    min={0}
+                    max={2500}
+                    step={50}
+                    className="py-1"
+                  />
+                </div>
               </div>
 
               {/* Min Experience */}
