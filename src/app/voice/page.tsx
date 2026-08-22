@@ -10,14 +10,15 @@ import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 import { Disclaimer } from '@/components/shared/disclaimer';
 import { UrgencyBadge } from '@/components/shared/urgency-badge';
-import { TriageResult } from '@/types';
+import { TriageResponse, UrgencyLevel, ChatMessage } from '@/types';
 
 export default function VoicePage() {
   const router = useRouter();
   const [statusText, setStatusText] = useState('Tap the microphone to speak your symptoms.');
-  const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
+  const [triageResponse, setTriageResponse] = useState<TriageResponse | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [spokenText, setSpokenText] = useState('');
+  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
 
   const {
     isListening,
@@ -48,30 +49,41 @@ export default function VoicePage() {
     const processVoiceInput = async (inputText: string) => {
       setIsProcessing(true);
       setStatusText('AI is analyzing your voice input...');
+      
+      const updatedHistory = [...chatHistory, { role: 'user' as const, content: inputText }];
+      setChatHistory(updatedHistory);
 
       try {
         const response = await fetch('/api/triage', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userInput: inputText })
+          body: JSON.stringify({ userInput: inputText, chatHistory })
         });
-        const data = await response.json();
+        const data: TriageResponse = await response.json();
 
         if (response.ok) {
-          if (data.urgency === 'emergency') {
+          if (data.state === 'ASSESSMENT' && data.final_assessment?.urgency === 'EMERGENCY') {
             speak('Warning: Your symptoms suggest a potential medical emergency. Seek immediate care.');
             router.push('/emergency');
             return;
           }
 
-          setTriageResult(data);
-          localStorage.setItem('medreach_latest_triage', JSON.stringify(data));
+          setTriageResponse(data);
+          
+          if (data.state === 'ASSESSMENT' && data.final_assessment) {
+            localStorage.setItem('medreach_latest_triage', JSON.stringify(data.final_assessment));
+          }
 
-          const spokenAnswer = `Based on your symptoms, I have determined the urgency level is ${data.urgency}. I recommend consulting a ${data.recommendedSpecialist}.`;
+          let spokenAnswer = data.message;
+          if (data.question && data.question.text) {
+              spokenAnswer += " " + data.question.text;
+          }
           speak(spokenAnswer);
-          setStatusText('Analysis complete. Spoken feedback active.');
+          
+          setChatHistory((prev) => [...prev, { role: 'assistant', content: spokenAnswer }]);
+          setStatusText(data.state === 'ASSESSMENT' ? 'Analysis complete. Spoken feedback active.' : 'Please reply to the question.');
         } else {
-          throw new Error(data.error);
+          throw new Error((data as any).error);
         }
       } catch (err) {
         const error = err as Error & { message?: string };
@@ -97,7 +109,6 @@ export default function VoicePage() {
     if (isListening) {
       stopListening();
     } else {
-      setTriageResult(null);
       resetTranscript();
       setSpokenText('');
       startListening();
@@ -185,28 +196,38 @@ export default function VoicePage() {
             </div>
           )}
 
+          {/* AI Response Text Box for better accessibility */}
+          {!isListening && triageResponse && (
+            <div className="w-full bg-teal-500/10 border border-teal-500/20 rounded-2xl p-4 text-center">
+              <span className="text-xs font-bold text-teal-600 dark:text-teal-400 uppercase block mb-1">AI Response:</span>
+              <p className="text-sm text-foreground">
+                {triageResponse.message} {triageResponse.question?.text}
+              </p>
+            </div>
+          )}
+
           {/* Triage Summary display in-place */}
-          {triageResult && (
+          {triageResponse && triageResponse.state === 'ASSESSMENT' && triageResponse.final_assessment && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="w-full border border-teal-500/20 bg-teal-500/5 rounded-2xl p-5 flex flex-col gap-4"
             >
               <div className="flex justify-between items-center">
-                <span className="text-sm font-bold text-muted-foreground">Triage Result</span>
-                <UrgencyBadge urgency={triageResult.urgency} />
+                <span className="text-sm font-bold text-muted-foreground">Final Assessment</span>
+                <UrgencyBadge urgency={triageResponse.final_assessment.urgency.toLowerCase() as UrgencyLevel} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-background/50 rounded-xl p-3 border border-border/30">
                   <span className="text-xs text-muted-foreground block">Specialist Match</span>
                   <span className="font-bold text-sm text-teal-600 dark:text-teal-400 mt-1 block">
-                    {triageResult.recommendedSpecialist}
+                    {triageResponse.final_assessment.recommended_specialties?.[0] || 'General Physician'}
                   </span>
                 </div>
                 <div className="bg-background/50 rounded-xl p-3 border border-border/30">
-                  <span className="text-xs text-muted-foreground block">Urgency Score</span>
+                  <span className="text-xs text-muted-foreground block">Time to Care</span>
                   <span className="font-bold text-sm text-foreground mt-1 block">
-                    {triageResult.score}/100
+                    {triageResponse.final_assessment.time_to_care}
                   </span>
                 </div>
               </div>

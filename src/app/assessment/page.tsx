@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { symptomCategories } from '@/lib/data/symptoms';
-import { ChatMessage, TriageResult, UrgencyLevel } from '@/types';
+import { ChatMessage, TriageResponse, UrgencyLevel } from '@/types';
 import { UrgencyBadge } from '@/components/shared/urgency-badge';
 import { Disclaimer } from '@/components/shared/disclaimer';
 
@@ -102,20 +102,22 @@ export default function AssessmentPage() {
 
       if (response.ok) {
         // Check if urgent emergency redirect is triggered
-        if (data.urgency === 'emergency') {
+        if (data.state === 'ASSESSMENT' && data.final_assessment?.urgency === 'EMERGENCY') {
           router.push('/emergency');
           return;
         }
 
         // Save latest triage result to LocalStorage so recommendations page can fetch it
-        localStorage.setItem('medreach_latest_triage', JSON.stringify(data));
+        if (data.state === 'ASSESSMENT' && data.final_assessment) {
+          localStorage.setItem('medreach_latest_triage', JSON.stringify(data.final_assessment));
+        }
 
         const assistantMsg: ChatMessage = {
           id: `ai-${Date.now()}`,
           role: 'assistant',
-          content: `Thank you for sharing. Based on my analysis: I have classified the urgency level as "${data.urgency.toUpperCase()}". I recommend speaking with a ${data.recommendedSpecialist || 'General Physician'}.`,
+          content: data.message || 'Processing your response...',
           timestamp: new Date(),
-          triageResult: data
+          triageResponse: data
         };
 
         setMessages((prev) => [...prev, assistantMsg]);
@@ -196,23 +198,40 @@ export default function AssessmentPage() {
                       }`}>
                       {msg.content}
 
-                      {/* Render Triage Result inside chat bubble */}
-                      {msg.triageResult && (
+                      {/* Render Triage Question Options inside chat bubble */}
+                      {msg.triageResponse?.question?.options && msg.triageResponse.question.options.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {msg.triageResponse.question.options.map((opt, idx) => (
+                            <Button 
+                              key={idx} 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs border-teal-500/30 hover:bg-teal-500/10"
+                              onClick={() => handleSend(opt)}
+                            >
+                              {opt}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Render Final Triage Result inside chat bubble */}
+                      {msg.triageResponse?.state === 'ASSESSMENT' && msg.triageResponse.final_assessment && (
                         <div className="mt-4 pt-4 border-t border-border/40 flex flex-col gap-3">
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-semibold text-muted-foreground">Urgency Classification:</span>
-                            <UrgencyBadge urgency={msg.triageResult.urgency} />
+                            <UrgencyBadge urgency={msg.triageResponse.final_assessment.urgency.toLowerCase() as UrgencyLevel} />
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-semibold text-muted-foreground">Recommended Specialist:</span>
                             <Badge variant="outline" className="font-bold border-teal-500/20 text-teal-600 dark:text-teal-400">
-                              {msg.triageResult.recommendedSpecialist}
+                              {msg.triageResponse.final_assessment.recommended_specialties?.[0] || 'General Physician'}
                             </Badge>
                           </div>
                           <div className="mt-2">
                             <p className="text-xs font-semibold text-muted-foreground mb-1">Suggested Next Steps:</p>
                             <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1 pl-1">
-                              {msg.triageResult.nextSteps.slice(0, 3).map((step, sIdx) => (
+                              {msg.triageResponse.final_assessment.do_now?.slice(0, 3).map((step, sIdx) => (
                                 <li key={sIdx}>{step}</li>
                               ))}
                             </ul>

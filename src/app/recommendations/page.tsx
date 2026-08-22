@@ -13,20 +13,20 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Disclaimer } from '@/components/shared/disclaimer';
 import { UrgencyBadge } from '@/components/shared/urgency-badge';
-import { TriageResult } from '@/types';
+import { FinalAssessment, UrgencyLevel } from '@/types';
 
 export default function RecommendationsPage() {
   const router = useRouter();
-  const [result, setResult] = useState<TriageResult | null>(null);
+  const [result, setResult] = useState<FinalAssessment | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('medreach_latest_triage');
     if (!saved) return;
 
     // Parse on initial mount without violating lint rules.
-    let parsed: TriageResult | null = null;
+    let parsed: FinalAssessment | null = null;
     try {
-      parsed = JSON.parse(saved) as TriageResult;
+      parsed = JSON.parse(saved) as FinalAssessment;
     } catch (err) {
       console.error('Failed to parse triage result from local storage:', err);
     }
@@ -38,10 +38,10 @@ export default function RecommendationsPage() {
     }
   }, []);
 
-
   const handleShareWhatsApp = () => {
     if (!result) return;
-    const text = `MedReach AI Triage Summary:\n- Urgency: ${result.urgency.toUpperCase()}\n- Urgency Score: ${result.score}/100\n- Recommended Specialist: ${result.recommendedSpecialist}\n- Symptoms: ${result.symptoms.join(', ')}\n- Suggested Conditions: ${result.possibleConditions.map(c => `${c.name} (${c.confidence}%)`).join(', ')}\n\nConsult a professional medical practitioner.`;
+    const recommendedSpecialist = result.recommended_specialties?.[0] || 'General Physician';
+    const text = `MedReach AI Triage Summary:\n- Urgency: ${result.urgency.toUpperCase()}\n- Recommended Specialist: ${recommendedSpecialist}\n- Summary: ${result.summary}\n- Suggested Conditions: ${result.possible_conditions.map(c => `${c.name} (${c.likelihood})`).join(', ')}\n\nConsult a professional medical practitioner.`;
     const encoded = encodeURIComponent(text);
     window.open(`https://wa.me/?text=${encoded}`, '_blank');
   };
@@ -69,11 +69,18 @@ export default function RecommendationsPage() {
   }
 
   const urgencyColors = {
+    EMERGENCY: 'border-red-500 bg-red-500/5',
+    URGENT: 'border-amber-500 bg-amber-500/5',
+    ROUTINE: 'border-green-500 bg-green-500/5',
+    SELF_CARE: 'border-blue-500 bg-blue-500/5',
     emergency: 'border-red-500 bg-red-500/5',
     urgent: 'border-amber-500 bg-amber-500/5',
     routine: 'border-green-500 bg-green-500/5',
     'self-care': 'border-blue-500 bg-blue-500/5'
   };
+
+  const urgencyClass = urgencyColors[result.urgency as keyof typeof urgencyColors] || urgencyColors['routine'];
+  const recommendedSpecialist = result.recommended_specialties?.[0] || 'General Physician';
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
@@ -87,7 +94,7 @@ export default function RecommendationsPage() {
               Triage Chat
             </Button>
           </Link>
-          <span className="text-xs text-muted-foreground">Triage ID: MR-{Math.round(result.score * 892)}</span>
+          <span className="text-xs text-muted-foreground">Triage ID: MR-{Math.floor(Math.random() * 89200)}</span>
         </div>
 
         {/* Document Actions */}
@@ -119,25 +126,21 @@ export default function RecommendationsPage() {
         <div className="lg:col-span-2 flex flex-col gap-8">
 
           {/* Main Urgency Card */}
-          <Card className={`border shadow-lg ${urgencyColors[result.urgency]}`}>
+          <Card className={`border shadow-lg ${urgencyClass}`}>
             <CardHeader className="pb-4">
               <div className="flex justify-between items-start gap-4">
                 <div>
                   <CardTitle className="text-2xl font-extrabold tracking-tight">Triage Outcome</CardTitle>
                   <CardDescription className="text-xs mt-1">Recommended level of clinical urgency</CardDescription>
                 </div>
-                <UrgencyBadge urgency={result.urgency} />
+                <UrgencyBadge urgency={result.urgency.toLowerCase() as UrgencyLevel} />
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
 
-              {/* Score Indicator */}
+              {/* Urgency Explanation */}
               <div className="space-y-2">
-                <div className="flex justify-between text-sm font-semibold">
-                  <span>Urgency Severity Index</span>
-                  <span>{result.score} / 100</span>
-                </div>
-                <Progress value={result.score} className="h-2.5 bg-muted" />
+                <p className="text-sm text-foreground font-medium">{result.urgency_explanation}</p>
               </div>
 
               {/* Specialist recommendation */}
@@ -145,8 +148,9 @@ export default function RecommendationsPage() {
                 <div>
                   <span className="text-xs font-bold text-muted-foreground block uppercase">Recommended Specialist</span>
                   <span className="text-lg font-bold text-teal-600 dark:text-teal-400 mt-0.5 block">
-                    {result.recommendedSpecialist}
+                    {recommendedSpecialist}
                   </span>
+                  <span className="text-xs text-muted-foreground block mt-1">Time to Care: {result.time_to_care}</span>
                 </div>
                 <HeartPulse className="h-8 w-8 text-teal-600 dark:text-teal-400 opacity-80" />
               </div>
@@ -158,7 +162,7 @@ export default function RecommendationsPage() {
                   Recommended Next Steps
                 </h3>
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  {result.nextSteps.map((step, idx) => (
+                  {result.do_now?.map((step, idx) => (
                     <li key={idx} className="flex gap-2 items-start bg-card/40 border border-border/20 p-3 rounded-xl leading-relaxed">
                       <span className="h-4 w-4 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
                         {idx + 1}
@@ -167,6 +171,17 @@ export default function RecommendationsPage() {
                     </li>
                   ))}
                 </ul>
+                
+                {result.watch_for_worsening && result.watch_for_worsening.length > 0 && (
+                  <div className="mt-4 p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
+                    <h4 className="text-xs font-bold text-red-500 mb-2">Watch for Worsening Signs:</h4>
+                    <ul className="list-disc list-inside text-xs text-muted-foreground">
+                      {result.watch_for_worsening.map((sign, idx) => (
+                        <li key={idx}>{sign}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
             </CardContent>
@@ -179,16 +194,16 @@ export default function RecommendationsPage() {
               <CardDescription>Statistical match based on symptom markers. Not a diagnosis.</CardDescription>
             </CardHeader>
             <CardContent className="divide-y divide-border/40 p-0">
-              {result.possibleConditions.map((condition, idx) => (
+              {result.possible_conditions?.map((condition, idx) => (
                 <div key={idx} className="p-4 flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-sm text-foreground">{condition.name}</span>
                     <Badge variant="secondary" className="bg-teal-500/10 text-teal-600 dark:text-teal-400 font-bold border border-teal-500/20 text-[10px]">
-                      {condition.confidence}% confidence
+                      {condition.likelihood} likelihood
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    {condition.description}
+                    {condition.brief} ({condition.medical_name})
                   </p>
                 </div>
               ))}
@@ -209,7 +224,7 @@ export default function RecommendationsPage() {
             <CardContent className="p-4 flex flex-col gap-4">
 
               {/* Map Action */}
-              <Link href={`/map?specialty=${encodeURIComponent(result.recommendedSpecialist)}`}>
+              <Link href={`/map?specialty=${encodeURIComponent(recommendedSpecialist)}`}>
                 <div className="p-4 rounded-xl border border-border/50 hover:border-teal-500/50 hover:bg-teal-500/[0.02] transition-all flex items-start gap-3 group cursor-pointer">
                   <div className="p-2.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform">
                     <MapPin className="h-5 w-5" />
@@ -220,14 +235,14 @@ export default function RecommendationsPage() {
                       <ExternalLink className="h-3 w-3" />
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Search local clinics maps offering {result.recommendedSpecialist} consultations.
+                      Search local clinics maps offering {recommendedSpecialist} consultations.
                     </p>
                   </div>
                 </div>
               </Link>
 
               {/* Doctor Action */}
-              <Link href={`/doctors?specialty=${encodeURIComponent(result.recommendedSpecialist)}`}>
+              <Link href={`/doctors?specialty=${encodeURIComponent(recommendedSpecialist)}`}>
                 <div className="p-4 rounded-xl border border-border/50 hover:border-teal-500/50 hover:bg-teal-500/[0.02] transition-all flex items-start gap-3 group cursor-pointer">
                   <div className="p-2.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform">
                     <Users className="h-5 w-5" />
@@ -238,7 +253,7 @@ export default function RecommendationsPage() {
                       <ExternalLink className="h-3 w-3" />
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Check fees, availability, and consult with {result.recommendedSpecialist} specialists.
+                      Check fees, availability, and consult with {recommendedSpecialist} specialists.
                     </p>
                   </div>
                 </div>
@@ -250,14 +265,10 @@ export default function RecommendationsPage() {
           {/* Quick Stats / Info */}
           <Card className="shadow-lg border-border/40">
             <CardHeader>
-              <CardTitle className="text-sm font-bold">Extracted Symptom Markers</CardTitle>
+              <CardTitle className="text-sm font-bold">Patient Summary</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-1.5 pt-0">
-              {result.symptoms.map((sym, sIdx) => (
-                <Badge key={sIdx} variant="outline" className="border-border bg-muted/40 font-semibold py-1">
-                  {sym}
-                </Badge>
-              ))}
+            <CardContent className="pt-0">
+              <p className="text-sm text-muted-foreground">{result.summary}</p>
             </CardContent>
           </Card>
 

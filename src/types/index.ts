@@ -3,25 +3,64 @@
 // ============================================================
 
 // --- Urgency Levels ---
-export type UrgencyLevel = 'emergency' | 'urgent' | 'routine' | 'self-care';
+export type UrgencyLevel = 'emergency' | 'urgent' | 'routine' | 'self-care' | 'EMERGENCY' | 'URGENT' | 'ROUTINE' | 'SELF_CARE';
 
-export interface TriageResult {
-  urgency: UrgencyLevel;
-  score: number; // 0-100
-  symptoms: string[];
-  duration?: string;
-  severity?: string;
-  possibleConditions: PossibleCondition[];
-  recommendedSpecialist: string;
-  nextSteps: string[];
-  followUpQuestions?: string[];
-  disclaimer: string;
+export type TriageState = 'GREETING' | 'TRIAGE_INTAKE' | 'CONTEXT' | 'ASSESSMENT' | 'FOLLOW_UP';
+
+export interface TriageQuestion {
+  text: string | null;
+  type: 'text' | 'scale' | 'choice' | 'body_map' | 'duration';
+  options?: string[];
+  why_asking?: string;
 }
 
-export interface PossibleCondition {
+export interface TriageProgress {
+  percent: number;
+  completed_fields: string[];
+  next_field: string;
+}
+
+export interface PreliminaryAssessment {
+  urgency: UrgencyLevel;
+  confidence: number;
+  reasoning: string;
+}
+
+export interface TriagePossibleCondition {
   name: string;
-  confidence: number; // 0-100
-  description: string;
+  medical_name: string;
+  likelihood: 'HIGH' | 'MODERATE' | 'LOW';
+  brief: string;
+}
+
+export interface EmergencyAction {
+  call_emergency: boolean;
+  emergency_number: string;
+  message: string;
+}
+
+export interface FinalAssessment {
+  urgency: UrgencyLevel;
+  urgency_explanation: string;
+  time_to_care: 'NOW' | 'Within 2 hours' | 'Within 24 hours' | 'Within a week' | 'Self-manage';
+  summary: string;
+  possible_conditions: TriagePossibleCondition[];
+  recommended_specialties: string[];
+  do_now: string[];
+  do_not: string[];
+  watch_for_worsening: string[];
+  self_care_advice: string | null;
+  emergency_action: EmergencyAction;
+}
+
+export interface TriageResponse {
+  state: TriageState;
+  message: string;
+  question: TriageQuestion | null;
+  progress: TriageProgress;
+  preliminary_assessment?: PreliminaryAssessment;
+  final_assessment?: FinalAssessment;
+  disclaimer_reminder: boolean;
 }
 
 // --- Chat Messages ---
@@ -32,7 +71,7 @@ export interface ChatMessage {
   role: MessageRole;
   content: string;
   timestamp: Date;
-  triageResult?: TriageResult;
+  triageResponse?: TriageResponse; // Updated from triageResult
   isEmergency?: boolean;
 }
 

@@ -45,11 +45,14 @@
 
 ## ✨ Features
 
-- **🤖 AI-Powered Clinical Triage:** Utilizes Google Gemini (`gemini-1.5-flash`) to analyze symptoms, assess severity, and categorize urgency (Emergency, Urgent, Routine, Self-care).
-- **🚨 Emergency Detection:** Built-in heuristics instantly bypass the standard AI flow for life-threatening conditions, providing immediate emergency instructions.
-- **🩺 Specialist Recommendations:** Intelligently matches analyzed symptoms to the appropriate medical specialties (e.g., Cardiology, Dermatology).
-- **🗺️ Interactive Healthcare Map:** Helps users find nearby clinics and hospitals seamlessly using Google Maps integration.
-- **🎙️ Voice Interface:** Voice-based interaction capabilities for accessible, hands-free symptom reporting.
+- **🤖 AI-Powered Conversational Triage (State Machine):** Utilizes Google Gemini (`gemini-1.5-flash`) through a structured **5-state conversational engine** (GREETING → TRIAGE_INTAKE → CONTEXT → ASSESSMENT → FOLLOW_UP). Each turn gathers OPQRST symptom data before delivering a structured clinical assessment.
+- **🧠 Clinical System Prompt (MEDREACH_TRIAGE_SYSTEM_PROMPT):** A deeply engineered clinical prompt modeled on ESI, Manchester Triage, and CTAS frameworks. Enforces strict JSON schema output, confidence calibration (0–100%), and instant red-flag escalation.
+- **🚨 Emergency Detection:** Built-in heuristics instantly bypass the AI for life-threatening presentations (stroke, MI, anaphylaxis, self-harm) before any API call is made.
+- **💬 Multi-Turn Conversation:** Tracks full chat history across turns, enabling follow-up questions and progressive clinical picture building before the final assessment.
+- **📊 Structured Assessment Output:** Final triage delivers: urgency level + explanation, possible conditions with likelihood scores, recommended specialties, do/do-not actions, warning signs, and time-to-care guidance.
+- **🩺 Specialist Recommendations:** Intelligently matches symptom patterns to the correct medical specialties (e.g., Cardiology, Neurology, Emergency Medicine).
+- **🗺️ Interactive Healthcare Map:** Helps users find nearby clinics and hospitals using Google Maps integration.
+- **🎙️ Voice Interface:** Multi-turn hands-free voice triage — speaks questions aloud and listens to answers, now with full conversation history support.
 - **⚡ Modern & Responsive UI:** Built with Tailwind CSS and Shadcn UI, featuring smooth transitions via Framer Motion and interactive 3D elements powered by React Three Fiber.
 
 ## 🛠 Tech Stack

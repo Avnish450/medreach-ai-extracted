@@ -32,7 +32,9 @@ export function UrgencyBadge({ urgency, className = '' }: UrgencyBadgeProps) {
     }
   };
 
-  const config = configs[urgency] || configs.routine;
+  // Normalize: supports both lowercase (emergency) and uppercase (EMERGENCY, SELF_CARE) from AI
+  const normalized = urgency.toLowerCase().replace('_', '-') as keyof typeof configs;
+  const config = configs[normalized] || configs.routine;
 
   return (
     <Badge className={`${config.styles} font-bold px-3 py-1 text-xs uppercase tracking-wider rounded-full shadow-sm ${className}`}>
