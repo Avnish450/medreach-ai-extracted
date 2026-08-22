@@ -1,0 +1,6 @@
+#!/usr/bin/expect -f
+set timeout -1
+spawn npx -y smoothui-cli add siri-orb
+expect "Install"
+send "\r"
+expect eof

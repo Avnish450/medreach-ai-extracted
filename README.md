@@ -51,10 +51,12 @@
 - **💬 Multi-Turn Conversation:** Tracks full chat history across turns, enabling follow-up questions and progressive clinical picture building before the final assessment.
 - **📊 Structured Assessment Output:** Final triage delivers: urgency level + explanation, possible conditions with likelihood scores, recommended specialties, do/do-not actions, warning signs, and time-to-care guidance.
 - **🩺 Specialist Recommendations:** Intelligently matches symptom patterns to the correct medical specialties (e.g., Cardiology, Neurology, Emergency Medicine).
-- **🚑 Community Rescue Transport:** A real-time peer-to-peerSOS system allowing patients to request emergency transport from nearby community volunteers. Includes interactive tabs for patients and volunteers with live browser event broadcasting.
-- **🗺️ Interactive Healthcare Map:** Helps users find nearby clinics and hospitals using Google Maps integration, now featuring manual address entry capabilities.
+- **🚑 Community Rescue Transport (P2P Network):** A real-time peer-to-peer SOS system allowing patients to request emergency transport from nearby community volunteers. Built on **Supabase Realtime**, it features interactive dashboards for both patients and volunteers with live browser event broadcasting.
+- **🛡️ Safety & Auto-Escalation:** Integrated with **Twilio** for emergency SMS broadcasting and automated escalation to 112 if a volunteer doesn't accept the rescue within 3 minutes. Includes active safety check-ins during transport.
+- **🏆 Gamification for Volunteers:** Volunteer dashboard features earned badges (First Aid, CPR, Fast Responder), real-time impact stats, and a live community feed to encourage and reward verified responders.
+- **🗺️ Interactive Healthcare Map:** Helps users find nearby clinics and hospitals using Google Maps integration, featuring manual address entry and live location tracking for transport.
 - **🎙️ Voice Interface:** Multi-turn hands-free voice triage — speaks questions aloud and listens to answers, now with full conversation history support.
-- **⚡ Modern & Responsive UI:** Built with Tailwind CSS and Shadcn UI, featuring smooth transitions via Framer Motion and interactive 3D elements powered by React Three Fiber.
+- **⚡ Modern & Responsive UI:** Built with Tailwind CSS and Shadcn UI, featuring smooth transitions via Framer Motion, interactive 3D elements powered by React Three Fiber, and robust state management via **Zustand**.
 
 ## 🛠 Tech Stack
 
@@ -71,6 +73,11 @@
 **APIs & Services**
 - [Google Generative AI (Gemini)](https://ai.google.dev/) (Triage Engine)
 - [Google Maps API](https://developers.google.com/maps) (Location & Routing)
+- [Supabase Realtime](https://supabase.com/) (Live P2P Rescue Network)
+- [Twilio](https://www.twilio.com/) (Emergency SMS Broadcasting)
+
+**State Management**
+- [Zustand](https://zustand-demo.pmnd.rs/) (Patient & Volunteer State Machines)
 
 ---
 
@@ -107,6 +114,15 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 # Required for the Interactive Map features
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+
+# Required for Community Rescue Transport (Realtime)
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Required for Emergency SMS Broadcasts (Optional, will simulate if missing)
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_PHONE_NUMBER=your_twilio_phone
 ```
 
 ### Quick Start

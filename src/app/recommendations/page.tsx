@@ -10,6 +10,8 @@ import { FinalAssessment } from '@/types';
 import { ClinicalSummaryCard } from '@/components/ui/dashboard/ClinicalSummaryCard';
 import { ActionChecklist } from '@/components/ui/dashboard/ActionChecklist';
 import { UrgencyBanner } from '@/components/ui/dashboard/UrgencyBanner';
+import { usePatientSosStore } from '@/store/use-patient-sos-store';
+import { ShieldAlert } from 'lucide-react';
 
 export default function RecommendationsPage() {
   const router = useRouter();
@@ -174,6 +176,42 @@ export default function RecommendationsPage() {
               </Link>
             </CardContent>
           </Card>
+
+          {/* Emergency Transport Card */}
+          {['serious', 'urgent', 'critical'].includes(result.urgency) && (
+            <Card className="shadow-lg border-red-500/30 overflow-hidden bg-red-950/10">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-amber-500 animate-pulse" />
+              <CardHeader className="pb-3 pt-5">
+                <CardTitle className="text-sm font-bold text-red-500 flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4" />
+                  Community Rescue Network
+                </CardTitle>
+                <CardDescription className="text-xs text-red-400/80">
+                  Peer-to-peer emergency transport by verified local volunteers.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <Button 
+                  onClick={() => {
+                    const rescueStore = usePatientSosStore.getState();
+                    rescueStore.setInitialContext({
+                      clinicalSummary: result.summary,
+                      urgency: result.urgency as any,
+                      doNow: result.do_now,
+                      doNot: result.do_not,
+                      recommendedSpecialty: recommendedSpecialist,
+                    });
+                    
+                    router.push("/transport?mode=patient&auto=true");
+                  }}
+                  className="w-full bg-red-600 hover:bg-red-500 text-white font-bold shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:shadow-[0_0_25px_rgba(239,68,68,0.4)]"
+                >
+                  Request Community Rescue
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
         </div>
 
       </div>

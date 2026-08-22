@@ -1,251 +1,295 @@
-'use client';
+"use client";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { AIOrb } from "@/components/ui/voice/ai-orb";
+import { ConversationHistory } from "@/components/ui/voice/conversation-history";
+import { VoiceControls } from "@/components/ui/voice/voice-controls";
+import { LanguageSelector } from "@/components/ui/voice/language-selector";
+import { TriageProgressBar } from "@/components/ui/voice/triage-progress-bar";
+import { LiveTranscript } from "@/components/ui/voice/live-transcript";
+import { EmergencyBanner } from "@/components/ui/voice/emergency-banner";
+import { FinalAssessmentCard } from "@/components/ui/voice/final-assessment-card";
+import { VoiceSelector } from "@/components/ui/voice/voice-selector";
+import { SpeechRateSlider } from "@/components/ui/voice/speech-rate-slider";
+import { Toggle } from "@/components/ui/toggle";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { SpeechEngine, VoiceState } from "@/lib/voice/speech-engine";
+import { AudioAnalyzer } from "@/lib/voice/audio-analyzer";
+import { detectEmergency } from "@/lib/triage/emergency-detector";
+import { useVoiceStore } from "@/lib/store/voice-store";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Mic, MicOff, Volume2, VolumeX, ShieldAlert, ArrowRight, Activity, Play } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
-import { useTextToSpeech } from '@/hooks/use-text-to-speech';
-import { UrgencyBadge } from '@/components/shared/urgency-badge';
-import { TriageResponse, UrgencyLevel, ChatMessage } from '@/types';
-
-export default function VoicePage() {
-  const router = useRouter();
-  const [statusText, setStatusText] = useState('Tap the microphone to speak your symptoms.');
-  const [triageResponse, setTriageResponse] = useState<TriageResponse | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [spokenText, setSpokenText] = useState('');
-  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
-
+export default function VoiceAssistPage() {
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [showEmergency, setShowEmergency] = useState(false);
+  const [emergencyReason, setEmergencyReason] = useState("");
+  const [showCaptions, setShowCaptions] = useState(true);
+  const [errorType, setErrorType] = useState("");
+  const [browserSupportsSpeech, setBrowserSupportsSpeech] = useState(true);
+  
+  const engineRef = useRef<SpeechEngine | null>(null);
+  const analyzerRef = useRef<AudioAnalyzer | null>(null);
+  
   const {
-    isListening,
-    transcript,
-    error: speechError,
-    startListening,
-    stopListening,
-    resetTranscript,
-    isSupported: isSpeechSupported
-  } = useSpeechRecognition({
-    onResult: (text) => {
-      setSpokenText(text);
-    }
-  });
+    messages,
+    language,
+    voiceName,
+    speechRate,
+    finalAssessment,
+    addMessage,
+    setFinalAssessment,
+  } = useVoiceStore();
 
-  const {
-    speak,
-    stop: stopSpeaking,
-    isSpeaking,
-    isSupported: isTtsSupported
-  } = useTextToSpeech();
-
-  // Handle voice transcript processing
+  // Initialize engine
   useEffect(() => {
-    if (isListening) return;
-    if (!transcript.trim()) return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setBrowserSupportsSpeech(false);
+    }
 
-    const processVoiceInput = async (inputText: string) => {
-      setIsProcessing(true);
-      setStatusText('AI is analyzing your voice input...');
-      
-      const updatedHistory = [...chatHistory, { role: 'user' as const, content: inputText }];
-      setChatHistory(updatedHistory);
+    engineRef.current = new SpeechEngine({
+      language,
+      continuous: false,
+      interimResults: true,
+      voiceName,
+      speechRate,
+      speechPitch: 1,
+    });
+    
+    if (!analyzerRef.current) {
+      analyzerRef.current = new AudioAnalyzer();
+    }
 
-      try {
-        const response = await fetch('/api/triage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userMessage: inputText, history: chatHistory })
-        });
-        const data: TriageResponse = await response.json();
+    // Auto-greet on mount
+    const timer = setTimeout(() => {
+      if (messages.length === 0) {
+        const greeting = "Hello! I'm your MedReach voice assistant. Please describe what you're feeling, and I'll help assess your symptoms.";
+        speakAndAdd(greeting, "assistant");
+      }
+    }, 1000);
 
-        if (response.ok) {
-          if (data.state === 'ASSESSMENT' && data.final_assessment?.urgency === 'EMERGENCY') {
-            speak('Warning: Your symptoms suggest a potential medical emergency. Seek immediate care.');
-            router.push('/emergency');
-            return;
-          }
+    return () => {
+      clearTimeout(timer);
+      engineRef.current?.interrupt();
+      analyzerRef.current?.stop();
+    };
+  }, [language, voiceName, speechRate, messages.length]);
 
-          setTriageResponse(data);
-          
-          if (data.state === 'ASSESSMENT' && data.final_assessment) {
-            localStorage.setItem('medreach_latest_triage', JSON.stringify(data.final_assessment));
-          }
+  const speakAndAdd = (text: string, role: "user" | "assistant") => {
+    addMessage({ role, content: text, timestamp: Date.now() });
+    if (role === "assistant") {
+      engineRef.current?.speak(text);
+    }
+  };
 
-          let spokenAnswer = data.message;
-          if (data.question && data.question.text) {
-              spokenAnswer += " " + data.question.text;
-          }
-          speak(spokenAnswer);
-          
-          setChatHistory((prev) => [...prev, { role: 'assistant', content: spokenAnswer }]);
-          setStatusText(data.state === 'ASSESSMENT' ? 'Analysis complete. Spoken feedback active.' : 'Please reply to the question.');
-        } else {
-          throw new Error((data as any).error);
+  const handleListen = async () => {
+    if (voiceState === "listening") {
+      engineRef.current?.stopListening();
+      analyzerRef.current?.stop();
+      return;
+    }
+
+    // Start audio analyzer for orb reactivity
+    await analyzerRef.current?.start(setAudioLevel);
+
+    engineRef.current?.startListening(
+      (text, isFinal) => {
+        setLiveTranscript(text);
+        if (isFinal) {
+          handleUserInput(text);
+          setLiveTranscript("");
         }
-      } catch (err) {
-        const error = err as Error & { message?: string };
-        setStatusText(`Error parsing symptoms: ${error?.message || 'Please try again.'}`);
-      } finally {
-        setIsProcessing(false);
+      },
+      setVoiceState,
+      (err, type) => {
+        console.error(err);
+        setVoiceState("error");
+        if (type) setErrorType(type);
+      }
+    );
+  };
+
+  // Barge-in detection
+  useEffect(() => {
+    if (audioLevel > 0.3 && voiceState === "speaking") {
+      engineRef.current?.interrupt();
+      handleListen(); // Stop AI, start listening
+    }
+  }, [audioLevel, voiceState]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (e.code === "Space" && !target?.tagName?.match(/INPUT|TEXTAREA/)) {
+        e.preventDefault();
+        handleListen(); // Space toggles mic
+      }
+      if (e.code === "Escape") {
+        engineRef.current?.interrupt();
       }
     };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [voiceState, liveTranscript]); // dependencies needed for handleListen closure
 
-    // Defer side-effect to avoid React lint complaining about cascading renders.
-    const id = window.setTimeout(() => {
-      void processVoiceInput(transcript);
-    }, 0);
-
-    return () => window.clearTimeout(id);
-  }, [isListening, transcript, router, speak]);
-
-  const handleMicToggle = () => {
-    if (isSpeaking) {
-      stopSpeaking();
+  const handleUserInput = async (text: string) => {
+    // 1. Emergency detection (before AI call)
+    const emergency = detectEmergency(text);
+    if (emergency.isEmergency) {
+      engineRef.current?.interrupt();
+      setShowEmergency(true);
+      setEmergencyReason(emergency.emergencyType ? `Critical symptom detected: ${emergency.emergencyType}` : "");
+      
+      // Speak emergency alert
+      setTimeout(() => {
+        engineRef.current?.speak(
+          "I've detected what may be a medical emergency. Please stay calm. I'm redirecting you to call emergency services immediately."
+        );
+      }, 300);
+      
+      // Redirect after speaking
+      setTimeout(() => {
+        window.location.href = "/emergency";
+      }, 5000);
+      return;
     }
 
-    if (isListening) {
-      stopListening();
-    } else {
-      resetTranscript();
-      setSpokenText('');
-      startListening();
-      setStatusText('Listening... describe your symptoms now.');
+    // 2. Add user message and call AI
+    addMessage({ role: "user", content: text, timestamp: Date.now() });
+    setVoiceState("processing");
+
+    try {
+      const response = await fetch("/api/triage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          history: messages,
+          userMessage: text,
+        }),
+      });
+
+      const data = await response.json();
+
+      // 3. Speak the AI's response
+      speakAndAdd(data.message, "assistant");
+
+      // 4. Handle question follow-up
+      if (data.question?.text) {
+        setTimeout(() => {
+          engineRef.current?.speak(data.question.text);
+        }, data.message.length * 60); // Wait for message to finish
+      }
+
+      // 5. If final assessment ready, show card + speak summary
+      if (data.state === "ASSESSMENT" && data.final_assessment) {
+        setFinalAssessment(data.final_assessment);
+        const summary = `Based on our conversation, my assessment is: ${data.final_assessment.urgency_explanation}. ${data.final_assessment.summary}`;
+        setTimeout(() => engineRef.current?.speak(summary), 1500);
+      }
+    } catch (error) {
+      console.error("Triage error:", error);
+      speakAndAdd("Sorry, I encountered an error. Please try again.", "assistant");
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl flex flex-col justify-center items-center min-h-[calc(100vh-8rem)]">
-      <Card className="w-full shadow-2xl border-border/40 backdrop-blur">
-        <CardHeader className="text-center pb-6 border-b border-border/40">
-          <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2 text-teal-600 dark:text-teal-400">
-            <Mic className="h-6 w-6" />
-            AI Voice Consultation
-          </CardTitle>
-          <CardDescription>
-            Conduct a full medical symptom triage using hands-free natural speech input &amp; output.
-          </CardDescription>
-        </CardHeader>
+    <div className="flex-grow flex flex-col bg-gradient-to-b from-slate-950 to-slate-900 text-white">
+      {/* Emergency Banner (Overlay) */}
+      <AnimatePresence>
+        {showEmergency && (
+          <EmergencyBanner reason={emergencyReason} onDismiss={() => setShowEmergency(false)} />
+        )}
+      </AnimatePresence>
 
-        <CardContent className="flex flex-col items-center py-10 gap-8">
+      {/* ARIA live region for screen readers */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {voiceState === "listening" && "Listening for your voice"}
+        {voiceState === "speaking" && "AI is speaking"}
+        {liveTranscript && `You said: ${liveTranscript}`}
+      </div>
 
-          {/* Animated Microphone Ring */}
-          <div className="relative flex items-center justify-center">
+      <div className="container mx-auto px-4 py-4 flex-grow flex flex-col">
+        {!browserSupportsSpeech && (
+          <Alert className="mb-4">
+            <AlertTitle>Browser Not Fully Supported</AlertTitle>
+            <AlertDescription className="flex flex-col gap-2 items-start">
+              For the best experience, use Chrome, Edge, or Safari 14+.
+              <Button onClick={() => window.location.href = "/assessment"} variant="outline">Switch to Text Mode</Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
-            {/* Listening waves */}
-            {isListening && (
-              <>
-                <span className="absolute h-36 w-36 rounded-full bg-teal-500/10 animate-ping" />
-                <span className="absolute h-28 w-28 rounded-full bg-teal-500/20 animate-pulse" />
-              </>
-            )}
+        {voiceState === "error" && errorType === "not-allowed" && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>Microphone Access Denied</AlertTitle>
+            <AlertDescription className="flex flex-col gap-2 items-start">
+              Please enable microphone permissions in your browser settings.
+              <Button onClick={handleListen} variant="outline" className="text-black">Try Again</Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
-            {/* Speaking waves */}
-            {isSpeaking && (
-              <>
-                <span className="absolute h-36 w-36 rounded-full bg-emerald-500/10 animate-pulse" />
-                <span className="absolute h-28 w-28 rounded-full bg-emerald-500/20 animate-ping" />
-              </>
-            )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow min-h-0">
+          
+          {/* LEFT: Conversation History */}
+          <div className="lg:col-span-1 bg-slate-900/50 rounded-2xl border border-slate-800 p-4 overflow-y-auto">
+            <h2 className="text-lg font-semibold mb-4">💬 Conversation</h2>
+            <ConversationHistory messages={messages} />
+          </div>
 
-            <Button
-              onClick={handleMicToggle}
-              size="icon"
-              className={`h-24 w-24 rounded-full shadow-xl transition-all duration-300 relative z-10 ${isListening
-                ? 'bg-red-500 hover:bg-red-600 text-white'
-                : isSpeaking
-                  ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                  : 'bg-teal-600 hover:bg-teal-700 text-white'
-                }`}
-            >
-              {isListening ? (
-                <MicOff className="h-10 w-10 animate-pulse" />
-              ) : isSpeaking ? (
-                <VolumeX className="h-10 w-10" />
-              ) : (
-                <Mic className="h-10 w-10" />
+          {/* CENTER: AI Orb + Controls */}
+          <div className="lg:col-span-2 flex flex-col items-center justify-center gap-6">
+            
+            {/* Language & Voice Selector (Top) */}
+            <div className="flex gap-4 items-center flex-wrap justify-center">
+              <LanguageSelector />
+              <span className="text-slate-600 hidden md:inline">|</span>
+              <VoiceSelector />
+              <span className="text-slate-600 hidden md:inline">|</span>
+              <SpeechRateSlider />
+            </div>
+
+            {/* THE ORB */}
+            <AIOrb state={voiceState} audioLevel={audioLevel} />
+
+            {/* Live Transcript */}
+            <div className="min-h-[80px] w-full flex flex-col justify-end items-center gap-2">
+              <Toggle pressed={showCaptions} onPressedChange={setShowCaptions}>
+                📝 Captions
+              </Toggle>
+              {showCaptions && (
+                <LiveTranscript text={liveTranscript} state={voiceState} />
               )}
-            </Button>
-          </div>
-
-          {/* Status message */}
-          <div className="text-center max-w-md">
-            <p className="font-semibold text-sm text-foreground">{statusText}</p>
-            {isListening && (
-              <span className="text-xs text-red-500 font-bold tracking-widest animate-pulse uppercase mt-1 block">
-                Recording... Speak now
-              </span>
-            )}
-            {isSpeaking && (
-              <span className="text-xs text-emerald-500 font-bold tracking-widest animate-pulse uppercase mt-1 block flex items-center justify-center gap-1">
-                <Volume2 className="h-3 w-3" />
-                AI Speaking Response
-              </span>
-            )}
-          </div>
-
-          {/* Real-time transcript box */}
-          {(transcript || spokenText) && (
-            <div className="w-full bg-muted/50 border border-border/40 rounded-2xl p-4 text-center">
-              <span className="text-xs font-bold text-muted-foreground uppercase block mb-1">Your Speech:</span>
-              <p className="text-sm italic text-foreground">
-                &ldquo;{transcript || spokenText}&rdquo;
-              </p>
             </div>
-          )}
 
-          {/* AI Response Text Box for better accessibility */}
-          {!isListening && triageResponse && (
-            <div className="w-full bg-teal-500/10 border border-teal-500/20 rounded-2xl p-4 text-center">
-              <span className="text-xs font-bold text-teal-600 dark:text-teal-400 uppercase block mb-1">AI Response:</span>
-              <p className="text-sm text-foreground">
-                {triageResponse.message} {triageResponse.question?.text}
-              </p>
-            </div>
-          )}
+            {/* Voice Controls */}
+            <VoiceControls
+              state={voiceState}
+              onToggleListen={handleListen}
+              onInterrupt={() => engineRef.current?.interrupt()}
+            />
 
-          {/* Triage Summary display in-place */}
-          {triageResponse && triageResponse.state === 'ASSESSMENT' && triageResponse.final_assessment && (
+            {/* Progress Bar */}
+            <TriageProgressBar />
+          </div>
+        </div>
+
+        {/* Final Assessment (Bottom Slide-Up) */}
+        <AnimatePresence>
+          {finalAssessment && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="w-full border border-teal-500/20 bg-teal-500/5 rounded-2xl p-5 flex flex-col gap-4"
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="fixed bottom-0 left-0 right-0 p-4 z-50 flex justify-center"
             >
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-bold text-muted-foreground">Final Assessment</span>
-                <UrgencyBadge urgency={triageResponse.final_assessment.urgency.toLowerCase() as UrgencyLevel} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-background/50 rounded-xl p-3 border border-border/30">
-                  <span className="text-xs text-muted-foreground block">Specialist Match</span>
-                  <span className="font-bold text-sm text-teal-600 dark:text-teal-400 mt-1 block">
-                    {triageResponse.final_assessment.recommended_specialties?.[0] || 'General Physician'}
-                  </span>
-                </div>
-                <div className="bg-background/50 rounded-xl p-3 border border-border/30">
-                  <span className="text-xs text-muted-foreground block">Time to Care</span>
-                  <span className="font-bold text-sm text-foreground mt-1 block">
-                    {triageResponse.final_assessment.time_to_care}
-                  </span>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => router.push('/recommendations')}
-                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold flex items-center justify-center gap-1 py-3 text-xs"
-              >
-                Open Recommendations Dashboard
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              <FinalAssessmentCard assessment={finalAssessment} />
             </motion.div>
           )}
-
-        </CardContent>
-
-        <CardFooter className="flex flex-col gap-4 border-t border-border/40 p-4">
-        </CardFooter>
-      </Card>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
