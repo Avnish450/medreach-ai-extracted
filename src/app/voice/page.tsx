@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
-import { Disclaimer } from '@/components/shared/disclaimer';
 import { UrgencyBadge } from '@/components/shared/urgency-badge';
 import { TriageResponse, UrgencyLevel, ChatMessage } from '@/types';
 
@@ -57,7 +56,7 @@ export default function VoicePage() {
         const response = await fetch('/api/triage', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userInput: inputText, chatHistory })
+          body: JSON.stringify({ userMessage: inputText, history: chatHistory })
         });
         const data: TriageResponse = await response.json();
 
@@ -245,7 +244,6 @@ export default function VoicePage() {
         </CardContent>
 
         <CardFooter className="flex flex-col gap-4 border-t border-border/40 p-4">
-          <Disclaimer />
         </CardFooter>
       </Card>
     </div>

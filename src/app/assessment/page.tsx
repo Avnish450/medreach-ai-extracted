@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { symptomCategories } from '@/lib/data/symptoms';
 import { ChatMessage, TriageResponse, UrgencyLevel, TriageProgress } from '@/types';
-import { Disclaimer } from '@/components/shared/disclaimer';
 import { ChatBubble } from '@/components/ui/chat/ChatBubble';
 import { TriageProgressPanel } from '@/components/ui/chat/TriageProgressPanel';
 
@@ -97,8 +96,8 @@ export default function AssessmentPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userInput: textToSend,
-          chatHistory: messages.map((m) => ({ role: m.role, content: m.content }))
+          userMessage: textToSend,
+          history: messages.map((m) => ({ role: m.role, content: m.content }))
         })
       });
 
@@ -271,9 +270,6 @@ export default function AssessmentPage() {
                 <Send className="h-5 w-5" />
               </Button>
             </form>
-            <div className="w-full">
-              <Disclaimer />
-            </div>
           </CardFooter>
         </Card>
       </div>

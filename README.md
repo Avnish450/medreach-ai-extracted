@@ -51,7 +51,8 @@
 - **💬 Multi-Turn Conversation:** Tracks full chat history across turns, enabling follow-up questions and progressive clinical picture building before the final assessment.
 - **📊 Structured Assessment Output:** Final triage delivers: urgency level + explanation, possible conditions with likelihood scores, recommended specialties, do/do-not actions, warning signs, and time-to-care guidance.
 - **🩺 Specialist Recommendations:** Intelligently matches symptom patterns to the correct medical specialties (e.g., Cardiology, Neurology, Emergency Medicine).
-- **🗺️ Interactive Healthcare Map:** Helps users find nearby clinics and hospitals using Google Maps integration.
+- **🚑 Community Rescue Transport:** A real-time peer-to-peerSOS system allowing patients to request emergency transport from nearby community volunteers. Includes interactive tabs for patients and volunteers with live browser event broadcasting.
+- **🗺️ Interactive Healthcare Map:** Helps users find nearby clinics and hospitals using Google Maps integration, now featuring manual address entry capabilities.
 - **🎙️ Voice Interface:** Multi-turn hands-free voice triage — speaks questions aloud and listens to answers, now with full conversation history support.
 - **⚡ Modern & Responsive UI:** Built with Tailwind CSS and Shadcn UI, featuring smooth transitions via Framer Motion and interactive 3D elements powered by React Three Fiber.
 
@@ -125,7 +126,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to view the 
 1. **Symptom Assessment:** Navigate to `/assessment` and input your symptoms (or use the Voice interface at `/voice`).
 2. **Review Triage Results:** The AI will process the symptoms and return an urgency score, possible conditions, and recommended next steps.
 3. **Find Care:** If a specialist is recommended, navigate to the `/map` or `/doctors` route to find nearby, relevant healthcare providers.
-4. **Emergency:** If critical keywords are detected, the UI will immediately redirect or show the `/emergency` protocol.
+4. **Community Rescue Transport:** In emergencies where ambulances are unavailable, navigate to `/transport` to broadcast an SOS signal to local volunteers in your area.
+5. **Emergency:** If critical keywords are detected, the UI will immediately redirect or show the `/emergency` protocol.
 
 ---
 
@@ -142,11 +144,13 @@ medreach-ai/
 │   │   ├── emergency/      # Emergency protocol page
 │   │   ├── map/            # Interactive clinics map
 │   │   ├── recommendations/# AI next-steps recommendations
+│   │   ├── transport/      # Community rescue transport page
 │   │   └── voice/          # Voice interaction page
 │   ├── components/         # Reusable React components
 │   │   ├── home/           # Landing page components (Hero, Bento grids)
 │   │   ├── layout/         # Header, Footer, Navigation
 │   │   ├── shared/         # Common UI elements
+│   │   ├── transport/      # SOS Patient & Volunteer Views
 │   │   └── ui/             # Shadcn UI primitives
 │   ├── lib/                # Core logic & utilities
 │   │   ├── ai/             # Gemini API integration, heuristic engine
