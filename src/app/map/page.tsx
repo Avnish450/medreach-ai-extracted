@@ -210,7 +210,35 @@ function ClinicMapContent() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Location Search Bar */}
+          {isLoaded && !loadError && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
+            <div className="w-full pt-1">
+              <Autocomplete
+                onLoad={onAutocompleteLoad}
+                onPlaceChanged={onPlaceChanged}
+              >
+                <div className="flex items-center bg-background border border-border rounded-md px-3 py-1.5 w-full focus-within:ring-1 focus-within:ring-teal-500/50 focus-within:border-teal-500 transition-all">
+                  <input
+                    type="text"
+                    placeholder="Enter your address or locality"
+                    className="flex-grow bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none border-none mr-2 w-full h-6"
+                  />
+                  <div className="flex items-center gap-2 border-l border-border pl-2 shrink-0">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div
+                      title="Use My GPS Location"
+                      className="w-6 h-6 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center cursor-pointer hover:bg-teal-500/20 transition-colors"
+                      onClick={() => handleCenterMyLocation()}
+                    >
+                      <Compass className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                </div>
+              </Autocomplete>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3 pt-1">
             {/* Specialty */}
             <div className="space-y-1.5">
               <span className="text-[10px] font-bold text-muted-foreground uppercase">Specialty</span>
@@ -427,32 +455,6 @@ function ClinicMapContent() {
       <div className="flex-grow h-1/2 lg:h-full relative bg-muted/10">
         {isLoaded && !loadError && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
           <>
-            {/* Floating Autocomplete Search Bar */}
-            <div className="absolute top-4 left-4 z-10 w-full max-w-sm px-4 sm:px-0">
-              <Autocomplete
-                onLoad={onAutocompleteLoad}
-                onPlaceChanged={onPlaceChanged}
-              >
-                <div className="flex items-center bg-card border border-border shadow-lg rounded-full px-4 py-2 w-full focus-within:ring-2 focus-within:ring-teal-500/50 focus-within:border-teal-500 transition-all">
-                  <input
-                    type="text"
-                    placeholder="Search Google Maps"
-                    className="flex-grow bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none border-none mr-2 w-full"
-                  />
-                  <div className="flex items-center gap-2 border-l border-border pl-3 shrink-0">
-                    <Search className="h-4.5 w-4.5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors" />
-                    <div
-                      title="Reset to My Location"
-                      className="w-7 h-7 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
-                      onClick={() => handleCenterMyLocation()}
-                    >
-                      <Compass className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              </Autocomplete>
-            </div>
-
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
               center={location}
