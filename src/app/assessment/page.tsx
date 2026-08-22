@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Send, Bot, User, AlertTriangle, ArrowRight, Mic, MicOff, RefreshCw,
+  Send, Bot, AlertTriangle, ArrowRight, Mic, MicOff, RefreshCw,
   Plus, Check, X, ShieldAlert, Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,9 +13,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { symptomCategories } from '@/lib/data/symptoms';
-import { ChatMessage, TriageResponse, UrgencyLevel } from '@/types';
-import { UrgencyBadge } from '@/components/shared/urgency-badge';
+import { ChatMessage, TriageResponse, UrgencyLevel, TriageProgress } from '@/types';
 import { Disclaimer } from '@/components/shared/disclaimer';
+import { ChatBubble } from '@/components/ui/chat/ChatBubble';
+import { TriageProgressPanel } from '@/components/ui/chat/TriageProgressPanel';
 
 export default function AssessmentPage() {
   const router = useRouter();
@@ -26,6 +27,9 @@ export default function AssessmentPage() {
   const [showSymptomPicker, setShowSymptomPicker] = useState(true);
   const [currentRegion, setCurrentRegion] = useState<string>('general');
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Track overall triage progress
+  const [triageProgress, setTriageProgress] = useState<TriageProgress | undefined>(undefined);
 
   const {
     isListening,
@@ -45,7 +49,7 @@ export default function AssessmentPage() {
       {
         id: 'greet',
         role: 'assistant',
-        content: "Hello! I am your AI clinical assistant. Describe what you are feeling in your own words, or choose symptoms from the guided selector below to begin your triage.",
+        content: "Hello! I am your AI clinical assistant. I'll ask you a few questions to understand your symptoms and direct you to the right care. What brings you in today?",
         timestamp: new Date()
       }
     ]);
@@ -54,7 +58,7 @@ export default function AssessmentPage() {
   // Scroll to bottom of chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, triageProgress]);
 
   const handleToggleSymptom = (symptomName: string) => {
     setSelectedSymptoms((prev) => {
@@ -86,7 +90,7 @@ export default function AssessmentPage() {
     setMessages((prev) => [...prev, userMsg]);
     setInputValue('');
     setIsLoading(true);
-    setShowSymptomPicker(false);
+    setShowSymptomPicker(false); // Hide guided selector after first message
 
     try {
       const response = await fetch('/api/triage', {
@@ -101,26 +105,48 @@ export default function AssessmentPage() {
       const data = await response.json();
 
       if (response.ok) {
+        const triageData = data as TriageResponse;
+
         // Check if urgent emergency redirect is triggered
-        if (data.state === 'ASSESSMENT' && data.final_assessment?.urgency === 'EMERGENCY') {
+        if (triageData.state === 'ASSESSMENT' && triageData.final_assessment?.urgency === 'EMERGENCY') {
           router.push('/emergency');
           return;
         }
 
         // Save latest triage result to LocalStorage so recommendations page can fetch it
-        if (data.state === 'ASSESSMENT' && data.final_assessment) {
-          localStorage.setItem('medreach_latest_triage', JSON.stringify(data.final_assessment));
+        if (triageData.state === 'ASSESSMENT' && triageData.final_assessment) {
+          localStorage.setItem('medreach_latest_triage', JSON.stringify(triageData.final_assessment));
+        }
+
+        // Update Progress
+        if (triageData.progress) {
+          setTriageProgress(triageData.progress);
         }
 
         const assistantMsg: ChatMessage = {
           id: `ai-${Date.now()}`,
           role: 'assistant',
-          content: data.message || 'Processing your response...',
+          content: triageData.message || 'Processing your response...',
           timestamp: new Date(),
-          triageResponse: data
+          triageResponse: triageData
         };
-
-        setMessages((prev) => [...prev, assistantMsg]);
+        
+        // Also add the follow-up question as a separate message bubble if it exists
+        if (triageData.question && triageData.question.text) {
+           const questionMsg: ChatMessage = {
+              id: `ai-q-${Date.now()}`,
+              role: 'assistant',
+              content: triageData.question.text,
+              timestamp: new Date(),
+              triageResponse: triageData // attach triage response to the question message instead, so chips render there
+           };
+           // attach only message content to the first one without triageResponse, to avoid double-rendering cards
+           assistantMsg.triageResponse = undefined;
+           setMessages((prev) => [...prev, assistantMsg, questionMsg]);
+        } else {
+           setMessages((prev) => [...prev, assistantMsg]);
+        }
+        
       } else {
         throw new Error(data.error || 'Failed to triage');
       }
@@ -147,8 +173,8 @@ export default function AssessmentPage() {
 
       {/* Left Pane - Chat Assistant */}
       <div className="flex-grow flex flex-col gap-4 lg:w-3/5">
-        <Card className="flex-grow flex flex-col min-h-[500px] shadow-lg border-border/40 backdrop-blur">
-          <CardHeader className="border-b border-border/40 py-4 flex flex-row items-center justify-between">
+        <Card className="flex-grow flex flex-col min-h-[500px] shadow-lg border-border/40 backdrop-blur overflow-hidden">
+          <CardHeader className="border-b border-border/40 py-4 flex flex-row items-center justify-between bg-muted/20">
             <div className="flex items-center gap-2">
               <Bot className="h-6 w-6 text-teal-600 dark:text-teal-400" />
               <div>
@@ -171,85 +197,18 @@ export default function AssessmentPage() {
             )}
           </CardHeader>
 
+          <TriageProgressPanel progress={triageProgress} />
+
           {/* Chat Messages */}
-          <CardContent className="flex-grow overflow-y-auto p-4 max-h-[450px] space-y-4">
+          <CardContent className="flex-grow overflow-y-auto p-4 max-h-[450px] space-y-4 bg-gradient-to-b from-background to-muted/10">
             <AnimatePresence initial={false}>
-              {messages.map((msg) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto'
-                    }`}
-                >
-                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white shrink-0 ${msg.role === 'user'
-                      ? 'bg-teal-600'
-                      : 'bg-muted border border-border text-teal-600 dark:text-teal-400'
-                    }`}>
-                    {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <div className={`rounded-2xl p-4 text-sm leading-relaxed shadow-sm ${msg.role === 'user'
-                        ? 'bg-teal-600 text-white rounded-tr-none'
-                        : 'bg-muted/80 text-foreground rounded-tl-none border border-border/40'
-                      }`}>
-                      {msg.content}
-
-                      {/* Render Triage Question Options inside chat bubble */}
-                      {msg.triageResponse?.question?.options && msg.triageResponse.question.options.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {msg.triageResponse.question.options.map((opt, idx) => (
-                            <Button 
-                              key={idx} 
-                              variant="outline" 
-                              size="sm" 
-                              className="text-xs border-teal-500/30 hover:bg-teal-500/10"
-                              onClick={() => handleSend(opt)}
-                            >
-                              {opt}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Render Final Triage Result inside chat bubble */}
-                      {msg.triageResponse?.state === 'ASSESSMENT' && msg.triageResponse.final_assessment && (
-                        <div className="mt-4 pt-4 border-t border-border/40 flex flex-col gap-3">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-semibold text-muted-foreground">Urgency Classification:</span>
-                            <UrgencyBadge urgency={msg.triageResponse.final_assessment.urgency.toLowerCase() as UrgencyLevel} />
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-semibold text-muted-foreground">Recommended Specialist:</span>
-                            <Badge variant="outline" className="font-bold border-teal-500/20 text-teal-600 dark:text-teal-400">
-                              {msg.triageResponse.final_assessment.recommended_specialties?.[0] || 'General Physician'}
-                            </Badge>
-                          </div>
-                          <div className="mt-2">
-                            <p className="text-xs font-semibold text-muted-foreground mb-1">Suggested Next Steps:</p>
-                            <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1 pl-1">
-                              {msg.triageResponse.final_assessment.do_now?.slice(0, 3).map((step, sIdx) => (
-                                <li key={sIdx}>{step}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <Button
-                            className="mt-3 w-full bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 flex items-center justify-center gap-1"
-                            onClick={() => router.push('/recommendations')}
-                          >
-                            Go to Recommendations Dashboard
-                            <ArrowRight className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-muted-foreground/80 self-end px-1">
-                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                </motion.div>
+              {messages.map((msg, index) => (
+                <ChatBubble 
+                  key={msg.id} 
+                  message={msg} 
+                  isLast={index === messages.length - 1}
+                  onSendReply={handleSend} 
+                />
               ))}
             </AnimatePresence>
 
@@ -270,7 +229,7 @@ export default function AssessmentPage() {
           </CardContent>
 
           {/* Form Input */}
-          <CardFooter className="border-t border-border/40 p-4 flex flex-col gap-3">
+          <CardFooter className="border-t border-border/40 p-4 flex flex-col gap-3 bg-muted/20">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -306,7 +265,7 @@ export default function AssessmentPage() {
               <Button
                 type="submit"
                 size="icon"
-                className="h-12 w-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-md"
+                className="h-12 w-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-md transition-all hover:scale-105 active:scale-95"
                 disabled={!inputValue.trim() || isLoading}
               >
                 <Send className="h-5 w-5" />
@@ -347,7 +306,7 @@ export default function AssessmentPage() {
                     variant={currentRegion === cat.id ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setCurrentRegion(cat.id)}
-                    className="text-xs flex gap-1 items-center whitespace-nowrap"
+                    className="text-xs flex gap-1 items-center whitespace-nowrap rounded-lg"
                   >
                     <span>{cat.icon}</span>
                     <span>{cat.name}</span>
@@ -366,7 +325,7 @@ export default function AssessmentPage() {
                         type="button"
                         variant={isSelected ? 'default' : 'outline'}
                         onClick={() => handleToggleSymptom(symptom.name)}
-                        className={`h-auto py-3 px-3 justify-start text-left text-xs font-semibold rounded-xl flex items-center gap-2 border-border/50 ${symptom.isEmergency && !isSelected ? 'border-red-500/30 text-red-500 hover:bg-red-500/5' : ''
+                        className={`h-auto py-3 px-3 justify-start text-left text-xs font-semibold rounded-xl flex items-center gap-2 border-border/50 transition-all ${symptom.isEmergency && !isSelected ? 'border-red-500/30 text-red-500 hover:bg-red-500/5' : ''
                           }`}
                       >
                         <span className={`h-4 w-4 rounded-full border border-current flex items-center justify-center shrink-0 ${isSelected ? 'bg-white text-teal-600' : ''

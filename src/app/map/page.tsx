@@ -12,11 +12,9 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useGeolocation } from '@/hooks/use-geolocation';
 import { Clinic } from '@/types';
-type Library = "places" | "drawing" | "geometry" | "visualization";
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { motion } from 'framer-motion';
-
-const libraries: Library[] = ['places'];
+import { NearbyClinicsMap } from '@/components/ui/map/NearbyClinicsMap';
 
 
 function ClinicMapContent() {
@@ -26,7 +24,6 @@ function ClinicMapContent() {
   const { location, error: geoError, loading: geoLoading } = useGeolocation();
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [isLiveGoogleData, setIsLiveGoogleData] = useState(false);
 
   // Filters
@@ -35,11 +32,8 @@ function ClinicMapContent() {
   const [openNow, setOpenNow] = useState(false);
   const [minRating, setMinRating] = useState('0');
 
-  // Load Google Maps Script
-  const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-    libraries,
-  });
+  // Selected Clinic
+  const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
 
   const fetchClinics = async () => {
     setLoading(true);
@@ -83,23 +77,14 @@ function ClinicMapContent() {
     }
   }, [location, geoLoading, specialty, maxDistance, openNow, minRating]);
 
-
-  const mapContainerStyle = {
-    width: '100%',
-    height: '100%'
-  };
-
-  const mapOptions = {
-    disableDefaultUI: false,
-    zoomControl: true,
-    styles: [
-      {
-        featureType: 'poi.business',
-        elementType: 'labels',
-        stylers: [{ visibility: 'off' }]
-      }
-    ]
-  };
+  // Filters Hook Effect
+  useEffect(() => {
+    if (!geoLoading) {
+      queueMicrotask(() => {
+        void fetchClinics();
+      });
+    }
+  }, [location, geoLoading, specialty, maxDistance, openNow, minRating]);
 
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-4rem)] overflow-hidden">
@@ -244,56 +229,14 @@ function ClinicMapContent() {
         </div>
       </div>
 
-      {/* Map Section */}
-      <div className="flex-grow h-1/2 lg:h-full relative bg-muted/10">
-        {isLoaded && !loadError && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
-          <GoogleMap
-            mapContainerStyle={mapContainerStyle}
+      <div className="flex-grow h-1/2 lg:h-full relative bg-muted/10 p-4 lg:p-0">
+        {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
+          <NearbyClinicsMap 
+            clinics={clinics}
             center={location}
-            zoom={13}
-            options={mapOptions}
-          >
-            <Marker
-              position={location}
-              icon={{
-                url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-              }}
-            />
-
-            {clinics.map((clinic) => (
-              <Marker
-                key={clinic.id}
-                position={clinic.location}
-                onClick={() => setSelectedClinic(clinic)}
-                icon={{
-                  url: clinic.isEmergency
-                    ? 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-                    : 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
-                }}
-              />
-            ))}
-
-            {selectedClinic && (
-              <InfoWindow
-                position={selectedClinic.location}
-                onCloseClick={() => setSelectedClinic(null)}
-              >
-                <div className="p-2 max-w-[200px] text-black">
-                  <h4 className="font-bold text-xs">{selectedClinic.name}</h4>
-                  <p className="text-[10px] mt-1 text-gray-700">{selectedClinic.address}</p>
-                  <p className="text-[10px] font-semibold mt-1">Distance: {selectedClinic.distance} km</p>
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${selectedClinic.location.lat},${selectedClinic.location.lng}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[10px] text-teal-600 font-bold block mt-2 hover:underline"
-                  >
-                    Get Directions &rarr;
-                  </a>
-                </div>
-              </InfoWindow>
-            )}
-          </GoogleMap>
+            selectedClinicId={selectedClinic?.id}
+            onClinicSelect={setSelectedClinic}
+          />
         ) : (
           <div className="absolute inset-0 flex flex-col justify-center items-center p-8 text-center bg-card">
             <div className="w-full max-w-lg h-64 border border-dashed border-border rounded-2xl relative overflow-hidden bg-muted/40 mb-6 flex flex-col justify-center items-center shadow-inner">
