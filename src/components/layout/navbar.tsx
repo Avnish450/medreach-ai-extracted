@@ -31,7 +31,6 @@ export function Navbar() {
     { name: 'Symptom Triage', href: '/assessment', icon: <Activity className="w-3.5 h-3.5" /> },
     { name: 'Voice Assist', href: '/voice', icon: <Mic className="w-3.5 h-3.5" /> },
     { name: 'Rescue Transport', href: '/transport', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
-    { name: 'Policy Simulator', href: '/admin/policies', icon: <Settings className="w-3.5 h-3.5 text-primary" /> },
     { name: 'Clinic Radar', href: '/map', icon: <MapPin className="w-3.5 h-3.5" /> },
     { name: 'Doctors', href: '/doctors', icon: <Stethoscope className="w-3.5 h-3.5" /> },
   ];
