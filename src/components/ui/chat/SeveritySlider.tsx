@@ -32,7 +32,7 @@ export function SeveritySlider({ onSubmit }: SeveritySliderProps) {
       
       <Slider
         value={[value]}
-        onValueChange={([v]) => setValue(v)}
+        onValueChange={(v: any) => setValue(v[0])}
         min={0}
         max={10}
         step={1}

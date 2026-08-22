@@ -46,9 +46,9 @@ export function PreliminaryAssessmentCard({ assessment, confidence = 65 }: Preli
         </div>
       )}
 
-      {assessment.explanation && (
+      {assessment.urgency_explanation && (
         <p className="text-xs text-slate-400 mt-2 line-clamp-3">
-          "{assessment.explanation}"
+          "{assessment.urgency_explanation}"
         </p>
       )}
     </motion.div>
