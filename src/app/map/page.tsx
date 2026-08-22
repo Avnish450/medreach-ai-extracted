@@ -17,6 +17,25 @@ import { motion } from 'framer-motion';
 import { NearbyClinicsMap } from '@/components/ui/map/NearbyClinicsMap';
 
 
+const mapContainerStyle = {
+  width: '100%',
+  height: '100%',
+  minHeight: '400px',
+  borderRadius: '0.75rem'
+};
+
+const mapOptions = {
+  disableDefaultUI: false,
+  zoomControl: true,
+  styles: [
+    {
+      featureType: 'poi.business',
+      elementType: 'labels',
+      stylers: [{ visibility: 'off' }]
+    }
+  ]
+};
+
 function ClinicMapContent() {
   const searchParams = useSearchParams();
   const initialSpecialty = searchParams.get('specialty') || 'All';
@@ -26,6 +45,12 @@ function ClinicMapContent() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLiveGoogleData, setIsLiveGoogleData] = useState(false);
+
+  const libraries: ("places" | "drawing" | "geometry" | "visualization")[] = ["places"];
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    libraries,
+  });
 
   // Sync state once browser geolocation completes
   useEffect(() => {
